@@ -1,7 +1,7 @@
 #include "tbkp_instance.h"
 #include "tbkp_ub.h"
 #include <stddef.h>
-#include <malloc.h>
+#include <stdlib.h>
 
 int main() {
     TBKPInstance* instance = tbkp_instance_read("../data/example.txt");
