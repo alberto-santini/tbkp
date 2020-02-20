@@ -13,20 +13,20 @@ TBKPDeterministicEqUB tbkp_deub_get(
         const size_t *const items, uint_fast32_t capacity)
 {
     // Multiplier we need because COMBO only takes integer profits!
-    const long cmb_multiplier = 10000;
+    const float cmb_multiplier = 10000.0f;
     item* cmb_items = malloc(n_items * sizeof(*cmb_items));
 
     for(size_t i = 0; i < n_items; ++i) {
         const float real_w = (float)(instance->profits[items[i]]) * instance->probabilities[items[i]];
         cmb_items[i] = (item) {
-            .p = (long) (real_w * (float)cmb_multiplier),
+            .p = (long) (real_w * cmb_multiplier),
             .w = instance->weights[items[i]],
             .x = 0
         };
     }
 
     const long cmb_ub = combo(&cmb_items[0], &cmb_items[n_items - 1], capacity, 0, INT32_MAX, true, false);
-    const float ub = (float)cmb_ub / (float)cmb_multiplier;
+    const float ub = (float)cmb_ub / cmb_multiplier;
 
     size_t n_ub_items = 0;
 
