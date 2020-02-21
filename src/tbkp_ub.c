@@ -3,6 +3,7 @@
 //
 
 #include "tbkp_ub.h"
+#include "utils/pdqsort_c.h"
 #include <stdlib.h>
 #include <stdbool.h>
 #include <combo.h>
@@ -15,23 +16,21 @@ TBKPDeterministicEqUB tbkp_deub_get(
     // Multiplier we need because COMBO only takes integer profits!
     const float cmb_multiplier = 10000.0f;
 
-/////////////////////////////
-//@Alberto: controlla questa cosa....
-    item* cmb_items = malloc(n_items * sizeof(item));
-    ////item* cmb_items = malloc(n_items * sizeof(*cmb_items));
-/////////////////////////////
+    // AS: Michele, è corretto (e consigliato). Guarda qua:
+    // https://stackoverflow.com/questions/17258647/why-is-it-safer-to-use-sizeofpointer-in-malloc
+    item* cmb_items = malloc(n_items * sizeof(*cmb_items));
 
     for(size_t i = 0; i < n_items; ++i) {
         const float real_w = (float)(instance->profits[items[i]]) * instance->probabilities[items[i]];
         cmb_items[i] = (item) {
             .p = (long) (real_w * cmb_multiplier),
-            .w = instance->weights[items[i]],
+            .w = (long) instance->weights[items[i]],
             .x = 0,
-            .posizione = i
+            .posizione = (int) i
         };
     }
 
-    const long cmb_ub = combo(&cmb_items[0], &cmb_items[n_items - 1], capacity, 0, INT32_MAX, true, false);
+    const long cmb_ub = combo(&cmb_items[0], &cmb_items[n_items - 1], (long)capacity, 0, INT32_MAX, true, false);
     const float ub = (float)cmb_ub / cmb_multiplier;
 
     size_t n_ub_items = 0;
@@ -45,13 +44,16 @@ TBKPDeterministicEqUB tbkp_deub_get(
     size_t* ub_items = malloc(n_ub_items * sizeof(*ub_items));
 
     for(size_t i = 0; i < n_items; ++i) {
-	int valore = (int) (cmb_items[i].x+0.5);
-	if ( valore ) 
-	{
-		int j = cmb_items[i].posizione;
-            	ub_items[i] = items[j];
+        int cmb_val = (int) (cmb_items[i].x + 0.5);
+
+        if(cmb_val) {
+            ub_items[i] = items[cmb_items[i].posizione];
         }
     }
+
+    // TODO: Check if we need the item ids to be sorted.
+    // If not, remove the following line.
+    pdqsort_c(ub_items, n_items);
 
     return (TBKPDeterministicEqUB) {.ub = ub, .n_items = n_ub_items, .items = ub_items};
 }
