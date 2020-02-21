@@ -1,5 +1,5 @@
 #include "tbkp_instance.h"
-#include "tbkp_ub.h"
+#include "tbkp_de_sol.h"
 #include <stddef.h>
 #include <stdlib.h>
 
@@ -13,11 +13,11 @@ int main() {
         items[i] = i;
     }
 
-    TBKPDeterministicEqUB ub = tbkp_deub_get(instance, instance->n_items, items, instance->capacity);
+    TBKPDeterministicEqSol desol = tbkp_desol_get(instance, instance->n_items, items, instance->capacity);
 
-    tbkp_deub_print(&ub);
+    tbkp_desol_print(&desol);
 
-    tbkp_deub_free_inside(&ub);
+    tbkp_desol_free_inside(&desol);
     tbkp_instance_free(&instance);
 
     return 0;

@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 14)
 
 add_library(pdqsort src/utils/pdqsort.h src/utils/pdqsort_c.cpp)
 add_library(combo src/utils/combo.h src/utils/combo.c src/utils/pdqsort_c.cpp src/utils/pdqsort_c.h)
-add_executable(tbkp src/main.c src/tbkp_instance.h src/tbkp_instance.c src/tbkp_ub.h src/tbkp_ub.c)
+add_executable(tbkp src/main.c src/tbkp_instance.h src/tbkp_instance.c src/tbkp_de_sol.h src/tbkp_de_sol.c)
 
 set(WARNING_OPTIONS             -Wall -Wextra -Werror)
 set(GCC_WARNING_OPTIONS         -Wcast-align -Wconversion -Wmisleading-indentation

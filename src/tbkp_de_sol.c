@@ -2,14 +2,14 @@
 // Created by alberto on 19/02/2020.
 //
 
-#include "tbkp_ub.h"
+#include "tbkp_de_sol.h"
 #include "utils/pdqsort_c.h"
 #include <stdlib.h>
 #include <stdbool.h>
 #include <combo.h>
 #include <stdio.h>
 
-TBKPDeterministicEqUB tbkp_deub_get(
+TBKPDeterministicEqSol tbkp_desol_get(
         const TBKPInstance *const instance, size_t n_items,
         const size_t *const items, uint_fast32_t capacity)
 {
@@ -34,18 +34,25 @@ TBKPDeterministicEqUB tbkp_deub_get(
     const float ub = (float)cmb_ub / cmb_multiplier;
 
     size_t n_ub_items = 0;
+    float lb = 0.0f;
 
+    // We use this loop to count how many items are packed by COMBO, but also to compute
+    // the first part of the 01-KP objective function (the sum of the profits).
     for(size_t i = 0; i < n_items; ++i) {
         if(cmb_items[i].x) {
             ++n_ub_items;
+            lb += (float) instance->profits[items[cmb_items[i].posizione]];
         }
     }
 
     size_t* ub_items = malloc(n_ub_items * sizeof(*ub_items));
 
+    // We use this loop to create the list of the items packed by COMBO, but also to compute
+    // the second part of the 01-KP objective function (the product of the probabilities).
     for(size_t i = 0; i < n_items; ++i) {
-        if((int) (cmb_items[i].x + 0.5)) {
+        if(cmb_items[i].x) {
             ub_items[i] = items[cmb_items[i].posizione];
+            lb *= instance->probabilities[items[cmb_items[i].posizione]];
         }
     }
 
@@ -53,18 +60,19 @@ TBKPDeterministicEqUB tbkp_deub_get(
     // If not, remove the following line.
     pdqsort_c(ub_items, n_items);
 
-    return (TBKPDeterministicEqUB) {.ub = ub, .n_items = n_ub_items, .items = ub_items};
+    return (TBKPDeterministicEqSol) {.ub = ub, .lb = lb, .n_items = n_ub_items, .items = ub_items};
 }
 
-void tbkp_deub_free_inside(TBKPDeterministicEqUB *const deub_ptr) {
-    free(deub_ptr->items); deub_ptr->items = NULL;
+void tbkp_desol_free_inside(TBKPDeterministicEqSol *const desol_ptr) {
+    free(desol_ptr->items); desol_ptr->items = NULL;
 }
 
-void tbkp_deub_print(const TBKPDeterministicEqUB *const ub) {
-    printf("UB value: %f\n", ub->ub);
-    printf("Objects packed (%zu):\n\t", ub->n_items);
-    for(size_t i = 0; i < ub->n_items; ++i) {
-        printf("%zu ",ub->items[i]);
+void tbkp_desol_print(const TBKPDeterministicEqSol *const sol) {
+    printf("UB value: %f\n", sol->ub);
+    printf("LB value: %f\n", sol->lb);
+    printf("Objects packed (%zu):\n\t", sol->n_items);
+    for(size_t i = 0; i < sol->n_items; ++i) {
+        printf("%zu ", sol->items[i]);
     }
     printf("\n");
 }
