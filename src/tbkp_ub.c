@@ -23,14 +23,14 @@ TBKPDeterministicEqUB tbkp_deub_get(
     for(size_t i = 0; i < n_items; ++i) {
         const float real_w = (float)(instance->profits[items[i]]) * instance->probabilities[items[i]];
         cmb_items[i] = (item) {
-            .p = (long) (real_w * cmb_multiplier),
-            .w = (long) instance->weights[items[i]],
+            .p = (itype) (real_w * cmb_multiplier),
+            .w = (itype) instance->weights[items[i]],
             .x = 0,
             .posizione = (int) i
         };
     }
 
-    const long cmb_ub = combo(&cmb_items[0], &cmb_items[n_items - 1], (long)capacity, 0, INT32_MAX, true, false);
+    const long cmb_ub = combo(&cmb_items[0], &cmb_items[n_items - 1], (stype)capacity, 0, INT32_MAX, true, false);
     const float ub = (float)cmb_ub / cmb_multiplier;
 
     size_t n_ub_items = 0;
@@ -44,9 +44,7 @@ TBKPDeterministicEqUB tbkp_deub_get(
     size_t* ub_items = malloc(n_ub_items * sizeof(*ub_items));
 
     for(size_t i = 0; i < n_items; ++i) {
-        int cmb_val = (int) (cmb_items[i].x + 0.5);
-
-        if(cmb_val) {
+        if((int) (cmb_items[i].x + 0.5)) {
             ub_items[i] = items[cmb_items[i].posizione];
         }
     }
