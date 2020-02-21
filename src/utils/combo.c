@@ -1,4 +1,3 @@
-
 #include "combo.h"
 
 /* ======================================================================
@@ -37,8 +36,127 @@ combo.c,    S.Martello, D.Pisinger, P.Toth     feb 1997
 *   fax: +45 35 32 14 01
 */
 
+/* ======================================================================
+definitions
+====================================================================== */
+
+#define MINRUDI      1000    /* parameter M1 from paper: 1000 normally */
+#define MINSET       2000    /* parameter M2 from paper: 2000 normally */
+#define MINHEUR     10000    /* parameter M3 from paper: 10000 normally */
+#define MAXSTATES 1500000
+
+#undef HASCHANCE             /* should strong upper bounds be used? */
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <time.h>
+#include <stdbool.h>
+#include <stdarg.h>
+#include <string.h>
+#include <math.h>
+
+/* ======================================================================
+macros
+====================================================================== */
+
+#define srand(x)     srand48(x)
+#define randm(x)    (lrand48() % (long) (x))
+
+#define SYNC            5      /* when to switch to linear scan in bins */
+#define SORTSTACK     200      /* stack for saving discarded intervals */
+#define MINMED       1000      /* find exact median if larger size */
+#define MAXV  (8*sizeof(long)) /* number of bits in a long integer */
+
+#define LEFT  1                /* expansion of core in given direction */
+#define RIGHT 2
+
+#define PARTITION 1            /* should sort routine partition or sort */
+#define SORTALL   2
+
+#define DET(a1, a2, b1, b2)    ((a1) * (cmb_prod)(b2) - (a2) * (cmb_prod)(b1))
+#define SWAP(a, b)   { register cmb_item q; q = *(a); *(a) = *(b); *(b) = q; }
+#define NO(a,p)                ((int) ((p) - (a)->fitem + 1))
+#define DIFF(a,b)              ((int) (((b)+1) - (a)))
+#define TIME(t)                ((double) t / 1000)
+#define MIN(a,b)               ((a) < (b) ? (a) : (b))
+#define MAX(a,b)               ((a) > (b) ? (a) : (b))
+
+/* ======================================================================
+type declarations
+====================================================================== */
+
+typedef int (*funcptr) (const void *, const void *);
+
+/* interval record */
+typedef struct {
+    cmb_item  *f;               /* first item in interval  */
+    cmb_item  *l;               /* last item in interval   */
+} interval;
+
+/* state */
+typedef struct {
+    cmb_stype psum;             /* profit sum of state     */
+    cmb_stype wsum;             /* weight sum of state     */
+    cmb_btype vect;             /* corresponding (partial) solution vector */
+} state;
+
+/* set of partial vectors */
+typedef struct pset {
+    cmb_ntype size;             /* set size                */
+    state *fset;            /* first element in set    */
+    state *lset;            /* last element in set     */
+    state *set1;            /* first element in array  */
+    state *setm;            /* last element in array   */
+
+    cmb_btype    vno;           /* current vector number   */
+    cmb_item     *vitem[MAXV];  /* current last MAXV items */
+    cmb_item     *ovitem[MAXV]; /* optimal set of items    */
+    cmb_btype    ovect;         /* optimal solution vector */
+} partset;
 
 
+typedef struct { /* all info for solving separated problem */
+    cmb_item     *fitem;        /* first item in problem */
+    cmb_item     *litem;        /* last item in problem */
+    cmb_item     *s;            /* core is [s,t] */
+    cmb_item     *t;
+    cmb_item     *b;            /* break item */
+    cmb_item     *fpart;        /* first element in sorted core */
+    cmb_item     *lpart;        /* last element in sorted core */
+    cmb_stype    wfpart;        /* weight sum up to sorted core */
+    cmb_item     *fsort;
+    cmb_item     *lsort;
+    cmb_stype    wfsort;
+    cmb_stype    c;             /* capacity of problem */
+    cmb_stype    z;             /* incumbent solution */
+    cmb_stype    zwsum;         /* weight sum of incumbent solution */
+    cmb_stype    lb;            /* lower bound */
+
+    /* solutions may be represented in one of two ways: either a complete */
+    /* array of items (fullsol = TRUE), or as last changes in dynamic     */
+    /* programming enumeration (fullsol = FALSE) See description of partset */
+
+    _Bool    fullsol;       /* which representation of solution */
+    cmb_item     *fsol;     /* first item in opt solution (fullsol=FALSE) */
+    cmb_item     *lsol;     /* last item in opt solution (fullsol=FALSE) */
+    cmb_item     *ffull;    /* start of item array (fullsol=TRUE) */
+    cmb_item     *lfull;    /* end of item array (fullsol=TRUE) */
+    partset  d;             /* set of states, including solution */
+
+    cmb_stype    dantzig;       /* dantzig upper bound */
+    cmb_stype    ub;            /* global upper bound */
+    cmb_stype    psumb;         /* profit sum up to break item */
+    cmb_stype    wsumb;         /* weight sum up to break item */
+
+    cmb_stype    ps, ws, pt, wt;
+
+    interval *intv1, *intv2;
+    interval *intv1b, *intv2b;
+
+    _Bool relx;
+    _Bool master;
+    int coresize;
+} allinfo;
 
 /* ======================================================================
 debug variables
@@ -61,8 +179,8 @@ long dynheur;
 forward declarations
 ====================================================================== */
 
-stype combo(item *f, item *l, stype c, stype lb, stype ub,
-	boolean def, boolean relx);
+cmb_stype combo(cmb_item *f, cmb_item *l, cmb_stype c, cmb_stype lb, cmb_stype ub,
+                _Bool def, _Bool relx);
 
 
 /* ======================================================================
@@ -95,7 +213,10 @@ timing routines
 * in <unistd.h>, but only if _POSIX_SOURCE is defined.
 */
 
+#ifndef _POSIX_SOURCE
 #define _POSIX_SOURCE         /* to read <unistd.h> on digital UNIX */
+#endif
+
 #define _INCLUDE_POSIX_SOURCE /* to read <unistd.h> on HP-UX */
 //#include <unistd.h>           /* define the constant _SC_CLK_TCK */
 //#include <sys/times.h>        /* timing routines */
@@ -137,7 +258,7 @@ static void *palloc(long size, long no)
 push/pop
 ====================================================================== */
 
-static void push(allinfo *a, int side, item *f, item *l)
+static void push(allinfo *a, int side, cmb_item *f, cmb_item *l)
 {
 	interval *pos;
 	switch (side) {
@@ -149,7 +270,7 @@ static void push(allinfo *a, int side, item *f, item *l)
 }
 
 
-static void pop(allinfo *a, int side, item **f, item **l)
+static void pop(allinfo *a, int side, cmb_item **f, cmb_item **l)
 {
 	interval *pos;
 	switch (side) {
@@ -182,8 +303,8 @@ static void improvesol(allinfo *a, state *v)
 	a->fsol  = a->s;
 	a->lsol  = a->t;
 	a->d.ovect = v->vect;
-	a->fullsol = FALSE;
-	memcpy(a->d.ovitem, a->d.vitem, sizeof(item *) * MAXV);
+	a->fullsol = false;
+	memcpy(a->d.ovitem, a->d.vitem, sizeof(cmb_item *) * MAXV);
 }
 
 
@@ -193,10 +314,10 @@ definesolution
 
 static void definesolution(allinfo *a)
 {
-	register item *i, *h, *m;
-	register stype psum, wsum, ws;
-	item *f, *l;
-	btype j, k;
+	register cmb_item *i, *h, *m;
+	register cmb_stype psum, wsum, ws;
+	cmb_item *f, *l;
+	cmb_btype j, k;
 	long t;
 
 	/* endtime(&t); */
@@ -222,7 +343,7 @@ static void definesolution(allinfo *a)
 	/* backtrack */
 	for (j = 0; j < MAXV; j++) {
 		i = a->d.ovitem[j]; if (i == NULL) continue;
-		k = a->d.ovect & ((btype) 1 << j);
+		k = a->d.ovect & ((cmb_btype) 1 << j);
 		if (i->x == 1) {
 			if (i > f) f = i;
 			if (k) { psum += i->p; wsum += i->w; i->x = 0; }
@@ -242,7 +363,7 @@ static void definesolution(allinfo *a)
 	if (ws == wsum) {
 		for (i = f, m = l+1; i != m; i++) i->x = 1;
 	} else {
-		combo(f, l, wsum, psum-1, psum, TRUE, TRUE);
+		combo(f, l, wsum, psum-1, psum, true, true);
 	}
 }
 
@@ -253,10 +374,10 @@ rudidiv
 
 static void rudidiv(allinfo *a)
 {
-	register item *i, *m, *b;
-	register itype x, y, r;
-	register prod pb, wb, q;
-	register stype ws;
+	register cmb_item *i, *m, *b;
+	register cmb_itype x, y, r;
+	register cmb_prod pb, wb, q;
+	register cmb_stype ws;
 
 	b = a->b; pb = b->p; wb = b->w;
 	q = DET(a->z+1-a->psumb, a->c-a->wsumb, pb, wb);
@@ -276,11 +397,11 @@ static void rudidiv(allinfo *a)
 partsort
 ====================================================================== */
 
-static void partsort(allinfo *a, item *f, item *l, stype ws, stype c, int what)
+static void partsort(allinfo *a, cmb_item *f, cmb_item *l, cmb_stype ws, cmb_stype c, int what)
 {
-	register itype mp, mw;
-	register item *i, *j, *m;
-	register stype wi;
+	register cmb_itype mp, mw;
+	register cmb_item *i, *j, *m;
+	register cmb_stype wi;
 	int d;
 
 	d = l - f + 1;
@@ -327,11 +448,11 @@ static void partsort(allinfo *a, item *f, item *l, stype ws, stype c, int what)
 minweights
 ====================================================================== */
 
-static item *minweights(item *f, item *l, stype c)
+static cmb_item *minweights(cmb_item *f, cmb_item *l, cmb_stype c)
 {
-	register itype mw;
-	register item *i, *j, *m;
-	register stype ws;
+	register cmb_itype mw;
+	register cmb_item *i, *j, *m;
+	register cmb_stype ws;
 	int d;
 
 	for (;;) {
@@ -362,11 +483,11 @@ static item *minweights(item *f, item *l, stype c)
 maxprofits
 ====================================================================== */
 
-static item *maxprofits(item *f, item *l, stype z)
+static cmb_item *maxprofits(cmb_item *f, cmb_item *l, cmb_stype z)
 {
-	register itype mp;
-	register item *i, *j, *m;
-	register stype ps;
+	register cmb_itype mp;
+	register cmb_item *i, *j, *m;
+	register cmb_stype ps;
 	int d;
 
 	for (;;) {
@@ -397,16 +518,16 @@ static item *maxprofits(item *f, item *l, stype z)
 sursort
 ====================================================================== */
 
-static void sursort(item *f, item *l, itype sur, stype c,
-	stype *p1, stype *w1, item **b)
+static void sursort(cmb_item *f, cmb_item *l, cmb_itype sur, cmb_stype c,
+                    cmb_stype *p1, cmb_stype *w1, cmb_item **b)
 {
-	register itype s;
-	register prod mp, mw;
-	register item *i, *j, *m;
-	register stype ws, ps;
-	static item nn;
-	item *l1;
-	stype psum;
+	register cmb_itype s;
+	register cmb_prod mp, mw;
+	register cmb_item *i, *j, *m;
+	register cmb_stype ws, ps;
+	static cmb_item nn;
+	cmb_item *l1;
+	cmb_stype psum;
 	int d;
 
 	psum = 0; s = sur; l1 = l + 1;
@@ -443,32 +564,32 @@ static void sursort(item *f, item *l, itype sur, stype c,
 haschance
 ====================================================================== */
 
-static boolean haschance(allinfo *a, item *i, int side)
+static _Bool haschance(allinfo *a, cmb_item *i, int side)
 {
-	register itype p, w;
+	register cmb_itype p, w;
 	register state *j, *m;
-	register stype pp, ww;
+	register cmb_stype pp, ww;
 
-	if (a->d.size == 0) return FALSE;
+	if (a->d.size == 0) return false;
 
 #ifdef HASCHANCE
 	if (side == RIGHT) {
-		if (a->d.fset->wsum <= a->c - i->w) return TRUE;
+		if (a->d.fset->wsum <= a->c - i->w) return true;
 		p = a->ps; w = a->ws; pitested++;
 		pp = i->p - a->z - 1; ww = i->w - a->c;
 		for (j = a->d.fset, m = a->d.lset + 1; j != m; j++) {
-			if (DET(j->psum + pp, j->wsum + ww, p, w) >= 0) return TRUE;
+			if (DET(j->psum + pp, j->wsum + ww, p, w) >= 0) return true;
 		}
 	} else {
-		if (a->d.lset->wsum > a->c + i->w) return TRUE;
+		if (a->d.lset->wsum > a->c + i->w) return true;
 		p = a->pt; w = a->wt; pitested++;
 		pp = -i->p - a->z - 1; ww = -i->w - a->c;
 		for (j = a->d.lset, m = a->d.fset - 1; j != m; j--) {
-			if (DET(j->psum + pp, j->wsum + ww, p, w) >= 0) return TRUE;
+			if (DET(j->psum + pp, j->wsum + ww, p, w) >= 0) return true;
 		}
 	}
 	pireduced++;
-	return FALSE;
+	return false;
 #else
 	p = a->b->p; w = a->b->w;
 	if (side == LEFT) {
@@ -503,11 +624,11 @@ static void moveset(allinfo *a)
 multiply
 ====================================================================== */
 
-static void multiply(allinfo *a, item *h, int side)
+static void multiply(allinfo *a, cmb_item *h, int side)
 {
 	register state *i, *j, *k, *m;
-	register itype p, w;
-	register btype mask0, mask1;
+	register cmb_itype p, w;
+	register cmb_btype mask0, mask1;
 	state *r1, *rm;
 	partset *d;
 
@@ -516,7 +637,7 @@ static void multiply(allinfo *a, item *h, int side)
 
 	/* keep track on solution vector */
 	d->vno++; if (d->vno == MAXV) d->vno = 0;
-	mask1 = ((btype) 1 << d->vno); mask0 = ~mask1;
+	mask1 = ((cmb_btype) 1 << d->vno); mask0 = ~mask1;
 	d->vitem[d->vno] = h;
 
 	/* initialize limits */
@@ -558,11 +679,11 @@ static void multiply(allinfo *a, item *h, int side)
 surbin
 ====================================================================== */
 
-static void surbin(item *f, item *l, itype s1, itype s2, stype c,
-	stype dantzig, ntype card, stype *sur, stype *u)
+static void surbin(cmb_item *f, cmb_item *l, cmb_itype s1, cmb_itype s2, cmb_stype c,
+                   cmb_stype dantzig, cmb_ntype card, cmb_stype *sur, cmb_stype *u)
 {
-	item *b;
-	stype csur, r, psum, s, d, suropt;
+	cmb_item *b;
+	cmb_stype csur, r, psum, s, d, suropt;
 	double ua, ub, gr, e, uopt;
 
 	/* iterate surr. multiplier */
@@ -575,8 +696,8 @@ static void surbin(item *f, item *l, itype s1, itype s2, stype c,
 
 		/* derive bound and gradient */
 		e = 1; d = b-f;
-		ua = psum + r * (prod) b->p / (b->w+s);
-		ub = psum + (r + (card-d)*e) * (prod) b->p / (b->w+s+e);
+		ua = psum + r * (cmb_prod) b->p / (b->w + s);
+		ub = psum + (r + (card-d)*e) * (cmb_prod) b->p / (b->w + s + e);
 		gr = (ub - ua) / e;
 
 		if (ua < uopt) { suropt = s; uopt = ua; }
@@ -590,14 +711,14 @@ static void surbin(item *f, item *l, itype s1, itype s2, stype c,
 solvesur
 ====================================================================== */
 
-static void solvesur(allinfo *a, item *f, item *l, stype minsur, stype maxsur,
-	ntype card, stype *ub)
+static void solvesur(allinfo *a, cmb_item *f, cmb_item *l, cmb_stype minsur, cmb_stype maxsur,
+                     cmb_ntype card, cmb_stype *ub)
 {
-	register item *i, *k, *m;
-	register stype ps, csur;
-	register ntype no;
-	stype sur, u, z1;
-	boolean feasible;
+	register cmb_item *i, *k, *m;
+	register cmb_stype ps, csur;
+	register cmb_ntype no;
+	cmb_stype sur, u, z1;
+    _Bool feasible;
 
 	/* find optimal surrogate multiplier, and update ub */
 	surbin(f, l, minsur, maxsur, a->c, a->dantzig, card, &sur, &u);
@@ -617,7 +738,7 @@ static void solvesur(allinfo *a, item *f, item *l, stype minsur, stype maxsur,
 	}
 
 	/* solve problem to optimality */
-	z1 = ps + combo(k, l, csur, a->z-ps, 0, TRUE, TRUE);
+	z1 = ps + combo(k, l, csur, a->z-ps, 0, true, true);
 
 	/* subtract weight and check cardinality */
 	for (i = f, m = l+1, no = 0; i != m; i++) { i->w -= sur; if (i->x) no++; }
@@ -626,7 +747,7 @@ static void solvesur(allinfo *a, item *f, item *l, stype minsur, stype maxsur,
 	feasible = (no == card); if (feasible) relfeasible++;
 	if ((z1 > a->z) && (feasible)) {
 		for (i = f, k = a->ffull, m = l+1; i != m; i++, k++) *k = *i;
-		a->z = z1; a->fullsol = TRUE;
+		a->z = z1; a->fullsol = true;
 	}
 
 	/* output: maintain global upper bound */
@@ -640,18 +761,18 @@ surrelax
 
 static void surrelax(allinfo *a)
 {
-	register item *i, *j, *m;
-	item *f, *l, *b;
-	ntype n, card1, card2, b1;
-	stype u, minsur, maxsur, wsum;
-	itype minw, maxp, maxw;
+	register cmb_item *i, *j, *m;
+	cmb_item *f, *l, *b;
+	cmb_ntype n, card1, card2, b1;
+	cmb_stype u, minsur, maxsur, wsum;
+	cmb_itype minw, maxp, maxw;
 	long t1, t2;
 
 	/* copy table */
 	give_time(&t1);
 	relaxations++;
 	n = DIFF(a->fitem, a->litem);
-	f = (item*)palloc(n, sizeof(item));
+	f = (cmb_item*)palloc(n, sizeof(cmb_item));
 	l = f + n - 1;
 	minw = a->fitem->w; maxp = maxw = wsum = 0;
 	for (j = f, i = a->fitem, m = l+1; j != m; i++, j++) {
@@ -704,11 +825,11 @@ static void surrelax(allinfo *a)
 simpreduce
 ========================================================================= */
 
-static void simpreduce(int side, item **f, item **l, allinfo *a)
+static void simpreduce(int side, cmb_item **f, cmb_item **l, allinfo *a)
 {
-	register item *i, *j, *k;
-	register prod pb, wb;
-	register prod q;
+	register cmb_item *i, *j, *k;
+	register cmb_prod pb, wb;
+	register cmb_prod q;
 	register int red;
 
 	if (a->d.size == 0) { *f = *l+1; return; }
@@ -748,7 +869,7 @@ static void simpreduce(int side, item **f, item **l, allinfo *a)
 findvect
 ====================================================================== */
 
-static state *findvect(stype ws, state *f, state *l)
+static state *findvect(cmb_stype ws, state *f, state *l)
 {
 	/* find vector i, so that i->wsum <= ws < (i+1)->wsum */
 	state *m;
@@ -772,15 +893,15 @@ static state *findvect(stype ws, state *f, state *l)
 expandcore
 ====================================================================== */
 
-static void expandcore(allinfo *a, boolean *atstart, boolean *atend)
+static void expandcore(allinfo *a, _Bool *atstart, _Bool *atend)
 {
-	item *f, *l;
+	cmb_item *f, *l;
 
 	/* expand core */
-	*atstart = FALSE;
+	*atstart = false;
 	if (a->s < a->fsort) {
 		if (a->intv1 == a->intv1b) {
-			*atstart = TRUE;
+			*atstart = true;
 		} else {
 			pop(a, LEFT, &f, &l); a->ps = f->p; a->ws = f->w;
 			simpreduce(LEFT, &f, &l, a);
@@ -792,10 +913,10 @@ static void expandcore(allinfo *a, boolean *atstart, boolean *atend)
 	} else { a->ps = a->s->p; a->ws = a->s->w; }
 
 	/* expand core */
-	*atend = FALSE;
+	*atend = false;
 	if (a->t > a->lsort) {
 		if (a->intv2 == a->intv2b) {
-			*atend = TRUE;
+			*atend = true;
 		} else {
 			pop(a, RIGHT, &f, &l); a->pt = l->p; a->wt = l->w;
 			simpreduce(RIGHT, &f, &l, a);
@@ -815,10 +936,10 @@ reduceset
 static void reduceset(allinfo *a)
 {
 	register state *i, *m, *k;
-	register stype c, z;
-	register prod p, w;
+	register cmb_stype c, z;
+	register cmb_prod p, w;
 	state *v, *r1, *rm;
-	boolean atstart, atend;
+    _Bool atstart, atend;
 
 	if (a->d.size == 0) return;
 
@@ -857,11 +978,11 @@ static void reduceset(allinfo *a)
 initfirst
 ====================================================================== */
 
-static void initfirst(allinfo *a, stype pb, stype wb)
+static void initfirst(allinfo *a, cmb_stype pb, cmb_stype wb)
 {
 	partset *d;
 	state *k;
-	btype i;
+	cmb_btype i;
 
 	/* create table */
 	d = &(a->d);
@@ -882,8 +1003,8 @@ static void initfirst(allinfo *a, stype pb, stype wb)
 	d->vno = MAXV-1;
 
 	/* init full solution */
-	a->fullsol = FALSE;
-	a->ffull = (item*)palloc(DIFF(a->fitem,a->litem), sizeof(item));
+	a->fullsol = false;
+	a->ffull = (cmb_item*)palloc(DIFF(a->fitem, a->litem), sizeof(cmb_item));
 	a->lfull = a->ffull + DIFF(a->fitem,a->litem);
 }
 
@@ -892,7 +1013,7 @@ static void initfirst(allinfo *a, stype pb, stype wb)
 swapout
 ====================================================================== */
 
-static void swapout(allinfo *a, item *i, int side)
+static void swapout(allinfo *a, cmb_item *i, int side)
 {
 	interval *pos, *k;
 
@@ -934,9 +1055,9 @@ findcore
 
 void findcore(allinfo *a)
 {
-	register item *i, *m;
-	register itype p, r;
-	item *j, *s, *t, *b;
+	register cmb_item *i, *m;
+	register cmb_itype p, r;
+	cmb_item *j, *s, *t, *b;
 
 	/* all items apart from b must be in intervals */
 	s = t = b = a->b;
@@ -957,7 +1078,7 @@ void findcore(allinfo *a)
 	}
 
 	/* second forward greedy solution */
-	if (TRUE) {
+	if (true) {
 		p = 0; r = a->c - a->wsumb;
 		for (i = t+1, m = a->litem+1, j = NULL; i != m; i++) {
 			if ((i->w <= r) && (i->p > p)) { p = i->p; j = i; }
@@ -966,7 +1087,7 @@ void findcore(allinfo *a)
 	}
 
 	/* backward greedy solution */
-	if (TRUE) {
+	if (true) {
 		j = NULL; r = a->wsumb - a->c + b->w;
 		for (i = a->fitem, m = s; i != m; i++) if (i->w >= r) { p = i->p+1; break; }
 		for (; i != m; i++) if ((i->w >= r) && (i->p < p)) { p = i->p; j = i; }
@@ -1003,10 +1124,10 @@ heuristic
 
 static void heuristic(allinfo *a)
 {
-	register item *i, *j, *m;
-	register stype c, z, ub;
+	register cmb_item *i, *j, *m;
+	register cmb_stype c, z, ub;
 	register state *v, *r1, *rm;
-	item *red, d;
+	cmb_item *red, d;
 
 	if (a->d.size == 0) return;
 
@@ -1055,9 +1176,9 @@ findbreak
 
 static void findbreak(allinfo *a)
 {
-	register item *i;
-	register stype psum, r;
-	stype wsum;
+	register cmb_item *i;
+	register cmb_stype psum, r;
+	cmb_stype wsum;
 
 	/* find break item */
 	psum = 0; r = a->c;
@@ -1067,7 +1188,7 @@ static void findbreak(allinfo *a)
 	a->b       = i;
 	a->psumb   = psum;
 	a->wsumb   = wsum;
-	a->dantzig = psum + (r * (prod) i->p) / i->w;
+	a->dantzig = psum + (r * (cmb_prod) i->p) / i->w;
 }
 
 
@@ -1075,8 +1196,8 @@ static void findbreak(allinfo *a)
 combo
 ====================================================================== */
 
-extern stype combo(item *f, item *l, stype c, stype lb, stype ub,
-	boolean def, boolean relx)
+extern cmb_stype combo(cmb_item *f, cmb_item *l, cmb_stype c, cmb_stype lb, cmb_stype ub,
+                       _Bool def, _Bool relx)
 	/* f,l : first, last item                                               */
 	/* c   : capacity of knapsack                                           */
 	/* lb  : lower bound. Solution vector is only updated if better z found */
@@ -1087,12 +1208,12 @@ extern stype combo(item *f, item *l, stype c, stype lb, stype ub,
 {
 	allinfo a;
 	interval *inttab;
-	boolean heur, rudi;
+    _Bool heur, rudi;
 
 	if ((ub != 0) && (lb == ub)) return lb;
 
-	heur     = FALSE;
-	rudi     = FALSE;
+	heur     = false;
+	rudi     = false;
 	inttab   = (interval*)palloc(sizeof(interval), SORTSTACK);
 	a.intv1b = &inttab[0];
 	a.intv2b = &inttab[SORTSTACK - 1];
@@ -1128,13 +1249,13 @@ extern stype combo(item *f, item *l, stype c, stype lb, stype ub,
 		reduceset(&a);
 
 		/* find better lower bound when needed */
-		if ((!heur) && (a.d.size > MINHEUR)) { heuristic(&a); heur = TRUE; }
+		if ((!heur) && (a.d.size > MINHEUR)) { heuristic(&a); heur = true; }
 
 		/* find tight bound when needed */
-		if ((!relx) && (a.d.size > MINSET)) { surrelax(&a); relx = TRUE; }
+		if ((!relx) && (a.d.size > MINSET)) { surrelax(&a); relx = true; }
 
 		/* use rudimentary divisibility to decrease c */
-		if ((!rudi) && (a.d.size > MINRUDI)) { rudidiv(&a); rudi = TRUE; }
+		if ((!rudi) && (a.d.size > MINRUDI)) { rudidiv(&a); rudi = true; }
 	}
 	pfree(a.d.set1);
 	pfree(inttab);
@@ -1144,5 +1265,3 @@ extern stype combo(item *f, item *l, stype c, stype lb, stype ub,
 
 	return a.z;
 }
-
-

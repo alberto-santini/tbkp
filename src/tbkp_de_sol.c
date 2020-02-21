@@ -18,19 +18,19 @@ TBKPDeterministicEqSol tbkp_desol_get(
 
     // AS: Michele, è corretto (e consigliato). Guarda qua:
     // https://stackoverflow.com/questions/17258647/why-is-it-safer-to-use-sizeofpointer-in-malloc
-    item* cmb_items = malloc(n_items * sizeof(*cmb_items));
+    cmb_item* cmb_items = malloc(n_items * sizeof(*cmb_items));
 
     for(size_t i = 0; i < n_items; ++i) {
         const float real_w = (float)(instance->profits[items[i]]) * instance->probabilities[items[i]];
-        cmb_items[i] = (item) {
-            .p = (itype) (real_w * cmb_multiplier),
-            .w = (itype) instance->weights[items[i]],
+        cmb_items[i] = (cmb_item) {
+            .p = (cmb_itype) (real_w * cmb_multiplier),
+            .w = (cmb_itype) instance->weights[items[i]],
             .x = 0,
-            .posizione = (int) i
+            .pos = i
         };
     }
 
-    const long cmb_ub = combo(&cmb_items[0], &cmb_items[n_items - 1], (stype)capacity, 0, INT32_MAX, true, false);
+    const cmb_stype cmb_ub = combo(&cmb_items[0], &cmb_items[n_items - 1], (cmb_stype)capacity, 0, INT32_MAX, true, false);
     const float ub = (float)cmb_ub / cmb_multiplier;
 
     size_t n_ub_items = 0;
@@ -41,7 +41,7 @@ TBKPDeterministicEqSol tbkp_desol_get(
     for(size_t i = 0; i < n_items; ++i) {
         if(cmb_items[i].x) {
             ++n_ub_items;
-            lb += (float) instance->profits[items[cmb_items[i].posizione]];
+            lb += (float) instance->profits[items[cmb_items[i].pos]];
         }
     }
 
@@ -51,8 +51,8 @@ TBKPDeterministicEqSol tbkp_desol_get(
     // the second part of the 01-KP objective function (the product of the probabilities).
     for(size_t i = 0; i < n_items; ++i) {
         if(cmb_items[i].x) {
-            ub_items[i] = items[cmb_items[i].posizione];
-            lb *= instance->probabilities[items[cmb_items[i].posizione]];
+            ub_items[i] = items[cmb_items[i].pos];
+            lb *= instance->probabilities[items[cmb_items[i].pos]];
         }
     }
 
