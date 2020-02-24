@@ -46,6 +46,7 @@ TBKPDeterministicEqSol tbkp_desol_get(
         size_t n_items,
         const size_t* items,
         uint_fast32_t capacity);
+
 void tbkp_desol_free_inside(TBKPDeterministicEqSol* desol_ptr);
 void tbkp_desol_print(const TBKPDeterministicEqSol* sol);
 

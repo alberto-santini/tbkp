@@ -49,16 +49,19 @@ TBKPDeterministicEqSol tbkp_desol_get(
 
     // We use this loop to create the list of the items packed by COMBO, but also to compute
     // the second part of the 01-KP objective function (the product of the probabilities).
+    size_t curr_id = 0u;
     for(size_t i = 0; i < n_items; ++i) {
         if(cmb_items[i].x) {
-            ub_items[i] = items[cmb_items[i].pos];
+            ub_items[curr_id++] = items[cmb_items[i].pos];
             lb *= instance->probabilities[items[cmb_items[i].pos]];
         }
     }
 
     // TODO: Check if we need the item ids to be sorted.
     // If not, remove the following line.
-    pdqsort_c(ub_items, n_items);
+    pdqsort_c(ub_items, n_ub_items);
+
+    free(cmb_items); cmb_items = NULL;
 
     return (TBKPDeterministicEqSol) {.ub = ub, .lb = lb, .n_items = n_ub_items, .items = ub_items};
 }
