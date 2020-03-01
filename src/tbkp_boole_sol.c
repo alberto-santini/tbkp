@@ -27,14 +27,17 @@ TBKPBoolSol tbkp_boolsol_lin_gurobi_get(
         // x variables:
         error = GRBaddvar(grb_model, 0, NULL, NULL, (double) instance->profits[items[i]], 0.0, 1.0, GRB_BINARY, NULL);
 
-        if(error) {
+        if (error) {
             printf("Gurobi error adding variable x[%zu]: %d\n", i, error);
             exit(EXIT_FAILURE);
         }
+    }
 
+    for(size_t i = 0u; i < n_items; ++i) {
         for(size_t j = 0u; j < n_items; ++j) {
             double coeff = (double) instance->profits[items[i]];
             coeff *= (1.0 - instance->probabilities[items[j]]);
+            coeff *= -1.0;
             // z variables:
             error = GRBaddvar(grb_model, 0, NULL, NULL, coeff, 0.0, 1.0, GRB_BINARY, NULL);
 
