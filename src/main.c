@@ -24,18 +24,22 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
+    printf("Instance:\n");
     tbkp_instance_print(instance);
+    printf("\n\n");
 
     size_t* items = malloc(instance->n_items * sizeof(*items));
     for(size_t i = 0; i < instance->n_items; ++i) {
         items[i] = i;
     }
 
+    printf("Getting an upper bound solving a deterministic 01KP\n");
     TBKPDeterministicEqSol desol = tbkp_desol_get(instance, instance->n_items, items, instance->capacity);
 
     tbkp_desol_print(&desol);
     tbkp_desol_free_inside(&desol);
 
+    printf("Getting LB solving the quadratic programme...\n");
     TBKPBoolSol boolsol = tbkp_boolsol_quad_gurobi_get(instance, instance->n_items, items, instance->capacity);
 
     tbkp_boolsol_print(&boolsol);
@@ -43,6 +47,15 @@ int main() {
     tbkp_boolsol_compute_exact_obj(instance, &boolsol);
     tbkp_boolsol_print(&boolsol);
     tbkp_boolsol_free_inside(&boolsol);
+
+    printf("Getting LB solving the linearisation...\n");
+    TBKPBoolSol lin_boolsol = tbkp_boolsol_lin_gurobi_get(instance, instance->n_items, items, instance->capacity);
+
+    tbkp_boolsol_print(&lin_boolsol);
+    printf("Checking if the exact objective value is better...\n");
+    tbkp_boolsol_compute_exact_obj(instance, &lin_boolsol);
+    tbkp_boolsol_print(&lin_boolsol);
+    tbkp_boolsol_free_inside(&lin_boolsol);
 
     GRBfreeenv(grb_env);
 

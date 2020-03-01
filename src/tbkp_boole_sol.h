@@ -54,6 +54,33 @@ TBKPBoolSol tbkp_boolsol_quad_gurobi_get(
         const size_t* items,
         uint_fast32_t capacity);
 
+/** Gets the lower bound from solving the Bool BQ problem using a linearisation
+ *  and getting its solution via the Gurobi solver.
+ *
+ * @param instance  Const pointer to a Time-bomb Knapsack problem.
+ * @param n_items   Number of items to consider when solving the Boole BQ
+ *                  problem. This can be smaller than the number of items in
+ *                  the TBKP instance, if some items are excluded or fixed,
+ *                  e.g., because we are exploring a B&B tree.
+ * @param items     List of items from the original TBKP instance, which we are
+ *                  considering when solving the Boole BQ problem.
+ * @param capacity  Capacity of the Boole BQ knapsack (which can be smaller
+ *                  than the original TBKP instance's capacity).
+ * @return          The value of the LB and the objects selected by the Boole
+ *                  QB problem.
+ */
+TBKPBoolSol tbkp_boolsol_lin_gurobi_get(
+        const TBKPInstance* instance,
+        size_t n_items,
+        const size_t* items,
+        uint_fast32_t capacity);
+
+/** Computes the original TBKP objective value of a solution obtained
+ *  using the Boole BQ problem.
+ *
+ * @param instance  Const pointer to a Time-bomb Knapsack problem.
+ * @param sol       Boole BQ solution.
+ */
 void tbkp_boolsol_compute_exact_obj(
         const TBKPInstance* instance,
         TBKPBoolSol* sol);

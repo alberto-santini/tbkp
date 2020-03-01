@@ -8,6 +8,185 @@
 #include <gurobi_c.h>
 #include <assert.h>
 
+TBKPBoolSol tbkp_boolsol_lin_gurobi_get(
+        const TBKPInstance* instance,
+        size_t n_items,
+        const size_t* items,
+        uint_fast32_t capacity)
+{
+    GRBmodel* grb_model = NULL;
+    int error = GRBnewmodel(grb_env, &grb_model, "booleip", 0, NULL, NULL, NULL, NULL, NULL);
+    int n = (int)n_items;
+
+    if(error) {
+        printf("Gurobi newmodel error: %d\n", error);
+        exit(EXIT_FAILURE);
+    }
+
+    for(size_t i = 0; i < n_items; ++i) {
+        // x variables:
+        error = GRBaddvar(grb_model, 0, NULL, NULL, (double) instance->profits[items[i]], 0.0, 1.0, GRB_BINARY, NULL);
+
+        if(error) {
+            printf("Gurobi error adding variable x[%zu]: %d\n", i, error);
+            exit(EXIT_FAILURE);
+        }
+
+        for(size_t j = 0u; j < n_items; ++j) {
+            double coeff = (double) instance->profits[items[i]];
+            coeff *= (1.0 - instance->probabilities[items[j]]);
+            // z variables:
+            error = GRBaddvar(grb_model, 0, NULL, NULL, coeff, 0.0, 1.0, GRB_BINARY, NULL);
+
+            if(error) {
+                printf("Gurobi error adding variable z[%zu][%zu]: %d\n", i, j, error);
+            }
+        }
+    }
+
+    // 1 constraint: \sum_j w_j x_j <= c
+    int* cst_ind = malloc(n_items * sizeof(*cst_ind));
+    double* cst_val = malloc(n_items * sizeof(*cst_val));
+
+    if(!cst_ind || !cst_val) {
+        printf("Cannot allocate memory for constraint coefficients\n");
+        exit(EXIT_FAILURE);
+    }
+
+    for(size_t i = 0u; i < n_items; ++i) {
+        cst_ind[i] = (int) i;
+        cst_val[i] = (double) instance->weights[items[i]];
+    }
+
+    error = GRBaddconstr(grb_model, n, cst_ind, cst_val, GRB_LESS_EQUAL, (double)capacity, NULL);
+
+    if(error) {
+        printf("Gurobi addconstr error: %d\n", error);
+        exit(EXIT_FAILURE);
+    }
+
+    // n^2 constraints: z_{ij} <= x_i + x_j - 1
+    // i.e. -x_i -x_j + z_{ij} <= -1
+    for(size_t i = 0u; i < n_items; ++i) {
+        for(size_t j = 0u; j < n_items; ++j) {
+            if(i == j) {
+                // When i == j, Gurobi doesn't like duplicate indices,
+                // so we rewrite the constraint as:
+                // z_{ii} = x_i
+                // i.e., -x_i + z_{ii} = 0
+                int lcst_ind[2] = {
+                        (int) i, // x_i
+                        n + ((int) i * n + (int) i) // z_{ii}
+                };
+
+                double lcst_val[2] = {-1.0, 1.0};
+
+                error = GRBaddconstr(grb_model, 2, lcst_ind, lcst_val, GRB_EQUAL, 0.0, NULL);
+
+                if(error) {
+                    printf("Gurobi addcstr error on (%zu, %zu): %d\n", i, j, error);
+                    exit(EXIT_FAILURE);
+                }
+            } else {
+                int lcst_ind[3] = {
+                        (int) i, // x_i
+                        (int) j, // x_j
+                        n + ((int)i * n + (int)j) // z_{ij}
+                };
+
+                double lcst_val[3] = {-1.0, -1.0, 1.0};
+
+                error = GRBaddconstr(grb_model, 3, lcst_ind, lcst_val, GRB_LESS_EQUAL, -1.0, NULL);
+
+                if(error) {
+                    printf("Gurobi addcstr error on (%zu, %zu): %d\n", i, j, error);
+                    exit(EXIT_FAILURE);
+                }
+            }
+        }
+    }
+
+    error = GRBsetintattr(grb_model, "ModelSense", -1);
+
+    if(error) {
+        printf("Gurobi setintattr ModelSense error: %d\n", error);
+        exit(EXIT_FAILURE);
+    }
+
+    error = GRBoptimize(grb_model);
+
+    if(error) {
+        printf("Gurobi optimize error: %d\n", error);
+        exit(EXIT_FAILURE);
+    }
+
+    int grb_status;
+
+    error = GRBgetintattr(grb_model, GRB_INT_ATTR_STATUS, &grb_status);
+
+    if(error) {
+        printf("Gurobi error retrieving status: %d\n", error);
+        exit(EXIT_FAILURE);
+    }
+
+    if(grb_status != GRB_OPTIMAL) {
+        printf("Warning: Boole IP status not optimal. It is %d.\n", grb_status);
+    }
+
+    double obj;
+
+    error = GRBgetdblattr(grb_model, GRB_DBL_ATTR_OBJVAL, &obj);
+
+    if(error) {
+        printf("Gurobi error retrieving obj value: %d\n", error);
+        exit(EXIT_FAILURE);
+    }
+
+    double* solution = malloc((n_items + n_items * n_items) * sizeof(*solution));
+
+    if(!solution) {
+        printf("Cannot allocate memory to retrieve Gurobi solution\n");
+        exit(EXIT_FAILURE);
+    }
+
+    error = GRBgetdblattrarray(grb_model, GRB_DBL_ATTR_X, 0, n, solution);
+
+    if(error) {
+        printf("Gurobi error retrieving solution: %d\n", error);
+        exit(EXIT_FAILURE);
+    }
+
+    size_t grb_n_items = 0u;
+
+    for(size_t i = 0u; i < n_items; ++i) {
+        if(solution[i] > .5) {
+            ++grb_n_items;
+        }
+    }
+
+    size_t* grb_packed_items = malloc(grb_n_items * sizeof(*grb_packed_items));
+
+    if(!grb_packed_items) {
+        printf("Cannot allocate memory to save packed objects\n");
+        exit(EXIT_FAILURE);
+    }
+
+    size_t curr_id = 0u;
+    for(size_t i = 0u; i < n_items; ++i) {
+        if(solution[i] > .5) {
+            grb_packed_items[curr_id++] = items[i];
+        }
+    }
+
+    GRBfreemodel(grb_model);
+
+    free(cst_ind); cst_ind = NULL;
+    free(cst_val); cst_val = NULL;
+    free(solution); solution = NULL;
+
+    return (TBKPBoolSol){ .lb = (float)obj, .n_items = grb_n_items, .items = grb_packed_items };
+}
+
 TBKPBoolSol tbkp_boolsol_quad_gurobi_get(
         const TBKPInstance* instance,
         size_t n_items,
@@ -23,7 +202,7 @@ TBKPBoolSol tbkp_boolsol_quad_gurobi_get(
         exit(EXIT_FAILURE);
     }
 
-    for(size_t i = 0; i < n_items; ++i) {
+    for(size_t i = 0u; i < n_items; ++i) {
         error = GRBaddvar(grb_model, 0, NULL, NULL, (double) instance->profits[items[i]], 0.0, 1.0, GRB_BINARY, NULL);
 
         if(error) {
@@ -54,7 +233,7 @@ TBKPBoolSol tbkp_boolsol_quad_gurobi_get(
     }
 
     size_t index = 0u;
-    for(size_t i = 0; i < n_items; ++i) {
+    for(size_t i = 0u; i < n_items; ++i) {
         for(size_t j = i; j < n_items; ++j) {
             qrow[index] = (int) i;
             qcol[index] = (int) j;
@@ -88,7 +267,7 @@ TBKPBoolSol tbkp_boolsol_quad_gurobi_get(
         exit(EXIT_FAILURE);
     }
 
-    for(size_t i = 0; i < n_items; ++i) {
+    for(size_t i = 0u; i < n_items; ++i) {
         cst_ind[i] = (int) i;
         cst_val[i] = (double) instance->weights[items[i]];
     }
