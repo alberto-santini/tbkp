@@ -180,6 +180,7 @@ void tbkp_bb_solve_node(
 		    printf("Node killed!\n");
 		}
 
+        tbkp_desol_free_inside(&desol);
 		free(items); items = NULL;
 		return;
 	}
