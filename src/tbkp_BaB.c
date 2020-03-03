@@ -32,6 +32,10 @@ TBKPSolution* tbkp_sol_init(const TBKPInstance *const instance) {
 		exit(EXIT_FAILURE);
 	}
 
+	for(size_t i = 0u; i < instance->n_items; ++i) {
+	    solution->x[i] = false;
+	}
+
 	solution->prod_probabilities = 1.0f;
 	solution->sum_profits = 0u;
 	solution->value = 0.0f;
@@ -45,7 +49,7 @@ void tbkp_sol_print(TBKPSolution* solution, const TBKPInstance *const instance) 
 	printf("Packed objects:\n");
 
 	for(size_t i = 0u; i < instance->n_items; ++i) {
-		if(solution->x[i] == 1) {
+		if(solution->x[i]) {
 			printf("\tObj %zu, profit %" PRIuFAST32 ", weight %"PRIuFAST32 ", prob %.2f\n",
 					i, instance->profits[i], instance->weights[i], instance->probabilities[i]);
 		}
@@ -190,7 +194,7 @@ void tbkp_bb_solve_node(
 		}
 
 		for(size_t i = 0u; i < desol.n_items; ++i) {
-			solution->x[desol.items[i]] = 1;
+			solution->x[desol.items[i]] = true;
 		}
 
 		if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
@@ -272,17 +276,15 @@ void tbkp_bb_solve_node(
 
 				// Time-bomb objects
 				for(size_t i = 0u; i < instance->n_items; ++i) {
-					if(x[i] == FIXED_PACK) {
-					    solution->x[i] = 1;
-					} else {
-					    solution->x[i] = 0;
-					}
+					if(x[i] != UNFIXED) {
+                        solution->x[i] = x[i];
+                    }
 				}
 
 				// Non-time-bomb objects
 				for(size_t i = 0u; i < n_det_items; ++i) {
 					if(cmb_items[i].x) {
-						solution->x[cmb_items[i].pos] = 1;
+						solution->x[cmb_items[i].pos] = true;
 					}
 				}
 			}

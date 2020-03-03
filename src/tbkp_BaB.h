@@ -5,13 +5,14 @@
 #ifndef TBKP_TBKP_UB_H
 #define TBKP_TBKP_UB_H
 
-#include <stddef.h>
 #include "tbkp_instance.h"
+#include <stddef.h>
+#include <stdbool.h>
 
 #define NO_TIMEBOMB_ITEM_TO_BRANCH -1
 
 typedef struct {
-    int* x;
+    _Bool* x;
     float prod_probabilities;
     uint_fast32_t sum_profits;
     float value;
