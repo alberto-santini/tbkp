@@ -11,10 +11,18 @@
 
 #define NO_TIMEBOMB_ITEM_TO_BRANCH -1
 
+/** Represents a solution to the Time-Bomb Knapsack Problem. */
 typedef struct {
+    /** Vector of bools. x[i] is true iff item i is packed. */
     _Bool* x;
+
+    /** Product-of-probabilities component of the objective function. */
     float prod_probabilities;
+
+    /** Sum-of-profits component of the objective function. */
     uint_fast32_t sum_profits;
+
+    /** Objective value. */
     float value;
 } TBKPSolution;
 
@@ -34,6 +42,11 @@ typedef enum {
     FIXED_PACK = 1
 } TBKPBBFixedStatus;
 
+/** Solves the Time-Bomb Knapsack Problem by branch and bound.
+ *
+ * @param instance  The TBKP instance we are solving.
+ * @return          A pointer to the solution of the problem.
+ */
 TBKPSolution* tbkp_branch_and_bound(const TBKPInstance* instance);
 
 /** Finds the next time-bomb item to branch on. If no such item exists (because we either
