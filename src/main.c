@@ -1,6 +1,7 @@
 #include "tbkp_instance.h"
 #include "tbkp_de_sol.h"
 #include "tbkp_boole_sol.h"
+#include "tbkp_BaB.h"
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -58,6 +59,12 @@ int main() {
     tbkp_boolsol_free_inside(&lin_boolsol);
 
     GRBfreeenv(grb_env);
+
+
+    // branch-and-bound
+    int optimal = branch_and_bound(instance);
+    printf("optimal %d\n", optimal);
+
 
     tbkp_instance_free(&instance);
 
