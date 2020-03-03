@@ -89,6 +89,7 @@ TBKPSolution* tbkp_branch_and_bound(const TBKPInstance *const instance) {
 
 	tbkp_bb_solve_node(instance, &nnodes, x, prob_probabilities, sum_profits, residual_capacity, solution);
 
+	free(x); x = NULL;
 	return solution;
 }
 
