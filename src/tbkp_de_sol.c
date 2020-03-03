@@ -21,8 +21,9 @@ TBKPDeterministicEqSol tbkp_desol_get(
     // https://stackoverflow.com/questions/17258647/why-is-it-safer-to-use-sizeofpointer-in-malloc
     cmb_item* cmb_items = malloc(n_items * sizeof(*cmb_items));
 
-    uint_fast32_t sumw = 0;
+    cmb_stype sumw = 0;
     cmb_stype sump = 0;
+
     for(size_t i = 0; i < n_items; ++i) {
         const float real_w = (float)(instance->profits[items[i]]) * instance->probabilities[items[i]];
         cmb_items[i] = (cmb_item) {
@@ -31,20 +32,23 @@ TBKPDeterministicEqSol tbkp_desol_get(
             .x = 0,
             .pos = i
         };
-	sump += cmb_items[i].p;
-	sumw += cmb_items[i].w;
+
+        sump += cmb_items[i].p;
+        sumw += cmb_items[i].w;
     }
 
     cmb_stype cmb_ub;
-    if ( sumw <= capacity ) 
-    {
-	cmb_ub = sump;
-        for(size_t i = 0; i < n_items; ++i) cmb_items[i].x = 1; 
-    }
-    else 
-    {
+    
+    // Combo crashes if the total weights are < than the knapsack's capacity!
+    if(sumw <= (cmb_stype)capacity) {
+	    cmb_ub = sump;
+        for(size_t i = 0; i < n_items; ++i) {
+            cmb_items[i].x = 1;
+        }
+    } else {
         cmb_ub = combo(&cmb_items[0], &cmb_items[n_items - 1], (cmb_stype)capacity, 0, INT32_MAX, true, false);
     }
+
     const float ub = (float)cmb_ub / cmb_multiplier;
 
     size_t n_ub_items = 0;

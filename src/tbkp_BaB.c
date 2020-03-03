@@ -3,236 +3,343 @@
 //
 
 #include "tbkp_BaB.h"
+#include "tbkp_de_sol.h"
 #include "utils/pdqsort_c.h"
 #include <stdlib.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <combo.h>
-#include "tbkp_de_sol.h"
+#include <assert.h>
 
-#define PRILEV 100
+#ifndef BB_VERBOSITY_CURRENT
+#define BB_VERBOSITY_CURRENT 1001
+#endif
+
+#define BB_VERBOSITY_INFO 1000
 #define EPS 1e-6
 
-int branch_and_bound(const TBKPInstance *const instance)
-{
-	TBKPsolution* solution = malloc(sizeof(*solution));
-        solution->x = malloc(instance->n_items * sizeof(int));
-        solution->prod_Probab = 1.0;
-        solution->sum_Profits = 0;
-        solution->value = 0.0;
+TBKPSolution* tbkp_sol_init(const TBKPInstance *const instance) {
+	TBKPSolution* solution = malloc(sizeof(*solution));
 
-	// x[j] >= 0 if item j has been fixed by branching
-	//      = -1 if item j is still unfixed
-	int* x = malloc(instance->n_items * sizeof(*x));
-	for ( size_t t = 0; t < instance->n_items; ++t) x[t] = -1;
-	float prod_Probab = 1.0;
-	uint_fast32_t sum_Profits = 0;
-	uint_fast32_t resCapa = instance->capacity;
-
-	int nnodes = 0;
-
-	if ( PRILEV >= 1000 )
-	{
-		printf("root node; chiamo solve_node con capacity %d e n_items %d\n", (int) instance->capacity, (int) instance->n_items);
-		for ( size_t t = 0; t < instance->n_items; t++ ) printf(" %3d: prof %4d, weight %4d, probab %7.3lf\n", (int) t, instance->profits[t], instance->weights[t], instance->probabilities[t]);
-		printf("\n");
+	if(!solution) {
+		printf("Cannot allocate memory for solution\n");
+		exit(EXIT_FAILURE);
 	}
 
-	solve_node(instance, &nnodes, x, prod_Probab, sum_Profits, resCapa, solution);
+	solution->x = malloc(instance->n_items * sizeof(*solution->x));
 
-	printf("\nbranch-and-bound: solution value %f\n", solution->value);
-	for ( size_t t = 0; t < instance->n_items; t++ ) printf(" %3d: prof %4d, weight %4d, probab %7.3lf --> x %1d\n", (int) t, instance->profits[t], instance->weights[t], instance->probabilities[t], solution->x[t]);
-
-	return 1;
-}
-
-
-
-// returns the index of the item selected for branching (-1 if NONE)
-int branch_item(const TBKPInstance *const instance, int *x, uint_fast32_t capacity)
-{
-	// find the first uncertain item that is not fixed and fits in the residual capacity
-	for ( size_t i = 0; i < instance->n_items; ++i)
-	{
-		if ( instance->probabilities[i] > 1.0 - EPS ) continue;
-		if ( x[i] >= 0 ) continue;
-		if ( instance->weights[i] > capacity ) continue;
-		return i;
+	if(!solution->x) {
+		printf("Cannot allocate memory for solution's x vector\n");
+		exit(EXIT_FAILURE);
 	}
-	return -1;
+
+	solution->prod_probabilities = 1.0f;
+	solution->sum_profits = 0u;
+	solution->value = 0.0f;
+
+	return solution;
 }
 
+void tbkp_sol_print(TBKPSolution* solution, const TBKPInstance *const instance) {
+	printf("Solution with value %.2f (%" PRIuFAST32 " sum of profits, %.2f prod of probabilities)\n",
+			solution->value, solution->sum_profits, solution->prod_probabilities);
+	printf("Packed objects:\n");
 
-void solve_node(const TBKPInstance *const instance, int *nnodes, int* x, float prod_Probab, uint_fast32_t sum_Profits, uint_fast32_t resCapa, TBKPsolution *solution)
-{
-	(*nnodes)++;
-	int currnode = *nnodes;
-
-	// count the number of items that are still unfixed
-	size_t n_items = 0;
-	for ( size_t j = 0; j < instance->n_items; j++ ) if ( x[j] < 0 ) n_items++;
-	if ( n_items <= 0 ) return;
-
-	// define the residual instance
-	size_t* items = malloc(n_items * sizeof(*items));
-	int cnt = 0;
-	for ( size_t j = 0; j < instance->n_items; j++ ) 
-	{
-		if ( x[j] < 0 ) 
-		{
-			items[cnt] = j;
-			cnt++;
+	for(size_t i = 0u; i < instance->n_items; ++i) {
+		if(solution->x[i] == 1) {
+			printf("\tObj %zu, profit %" PRIuFAST32 ", weight %"PRIuFAST32 ", prob %.2f\n",
+					i, instance->profits[i], instance->weights[i], instance->probabilities[i]);
 		}
-	}	
-	
-	if ( PRILEV >= 1000 ) 
-	{
-		printf("\n\nsono nel nodo %d con bestZ %f e resCapa %d\n", currnode, solution->value, (int) resCapa);
-		printf("sumProfits %d, productProfits %f\n", (int) sum_Profits, prod_Probab);
-		printf("number of residual items %d: ", (int) n_items);
-		for ( size_t j = 0; j < n_items; j++ ) printf("%2d ", (int) items[j]);
+	}
+}
+
+void tbkp_sol_free(TBKPSolution** solution_ptr) {
+	free((*solution_ptr)->x); (*solution_ptr)->x = NULL;
+	free(*solution_ptr); *solution_ptr = NULL;
+}
+
+TBKPSolution* tbkp_branch_and_bound(const TBKPInstance *const instance) {
+	TBKPSolution* solution = tbkp_sol_init(instance);
+
+	TBKPBBFixedStatus* x = malloc(instance->n_items * sizeof(*x));
+
+	for(size_t t = 0u; t < instance->n_items; ++t) {
+		x[t] = UNFIXED;
+	}
+
+	float prob_probabilities = 1.0f;
+	uint_fast32_t sum_profits = 0;
+	uint_fast32_t residual_capacity = instance->capacity;
+
+	size_t nnodes = 0u;
+
+	if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+		printf("[ROOT NODE] calling tbkp_bb_solve_node with capacity = %" PRIuFAST32 " and n_items = %" PRIuFAST32 "\n",
+				instance->capacity, instance->n_items);
+
+		for(size_t t = 0u; t < instance->n_items; ++t) {
+			printf("[%zu]: profit %" PRIuFAST32 ", weight %" PRIuFAST32 ", probab %7.3lf\n",
+					t, instance->profits[t], instance->weights[t], instance->probabilities[t]);
+		}
 		printf("\n");
 	}
 
-	// solve the deterministic relaxation
-	TBKPDeterministicEqSol desol = tbkp_desol_get(instance, n_items, items, resCapa);
-	if ( PRILEV >= 1000 ) tbkp_desol_print(&desol);
+	tbkp_bb_solve_node(instance, &nnodes, x, prob_probabilities, sum_profits, residual_capacity, solution);
 
-	// compute the local upper bound and possibly kill the node
-	float localub = (sum_Profits + desol.ub) * prod_Probab;
-	if ( PRILEV >= 1000 ) printf("desol.ub %f, sumProfits %d, productProfits %f -> localub %f (vs %f)\n", desol.ub, (int) sum_Profits, prod_Probab, localub, solution->value);
+	return solution;
+}
 
-	if ( localub <= solution->value ) 
-	{
-		if ( PRILEV >= 1000 ) printf("node killed\n");
-		free(items);
+int tbkp_bb_branch_item(const TBKPInstance *const instance, const TBKPBBFixedStatus *const x, uint_fast32_t capacity) {
+	// Find the first uncertain item that is not fixed and fits in the residual capacity
+	for(size_t i = 0u; i < instance->n_items; ++i) {
+		if(instance->probabilities[i] > 1.0 - EPS) continue;
+		if(x[i] != UNFIXED) continue;
+		if(instance->weights[i] > capacity) continue;
+
+		return (int)i;
+	}
+
+	return NO_TIMEBOMB_ITEM_TO_BRANCH;
+}
+
+
+void tbkp_bb_solve_node(
+        const TBKPInstance *const instance,
+        size_t* nnodes,
+        TBKPBBFixedStatus* x,
+        float prod_probabilities,
+        uint_fast32_t sum_profits,
+        uint_fast32_t res_capacity,
+        TBKPSolution *solution
+) {
+	(*nnodes)++;
+
+    const size_t current_node = *nnodes;
+
+	// Count the number of items that are still unfixed
+	size_t n_unfixed_items = 0u;
+	for(size_t j = 0u; j < instance->n_items; ++j) {
+        if (x[j] == UNFIXED) {
+            n_unfixed_items++;
+        }
+    }
+
+	if(n_unfixed_items == 0) {
+	    return;
+	}
+
+	// Define the residual instance
+	size_t* items = malloc(n_unfixed_items * sizeof(*items));
+
+	if(!items) {
+	    printf("Cannot allocate memory for the residual instance's items\n");
+	    exit(EXIT_FAILURE);
+	}
+
+	size_t cnt = 0;
+	for(size_t j = 0; j < instance->n_items; j++) {
+		if(x[j] < 0) {
+			items[cnt++] = j;
+		}
+	}
+	
+	if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+	    printf("[NODE %zu] Best z = %.3f, residual capacity = %" PRIuFAST32 "\n",
+	            current_node, solution->value, res_capacity);
+		printf("\tSum of profits: %" PRIuFAST32 "\n", sum_profits);
+		printf("\tProduct of probabilities: %f", prod_probabilities);
+		printf("\tNumber of unfixed items: %zu", n_unfixed_items);
+		printf("\tUnfixed items: ");
+		for(size_t j = 0u; j < n_unfixed_items; ++j) {
+		    printf("%zu ", items[j]);
+		}
+		printf("\n");
+	}
+
+	// Solve the deterministic relaxation
+	TBKPDeterministicEqSol desol = tbkp_desol_get(instance, n_unfixed_items, items, res_capacity);
+	if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+	    printf("Solution from the deterministic relaxation:\n");
+	    tbkp_desol_print(&desol);
+	}
+
+	// Compute the local upper bound and possibly kill the node
+	float localub = ((float)sum_profits + desol.ub) * prod_probabilities;
+	if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+	    printf("UB from deterministic relaxation solution: %f\n", desol.ub);
+	    printf("Sum of profits: %" PRIuFAST32 ", Product of probabilities: %f\n", sum_profits, prod_probabilities);
+	    printf("Local UB: %f (vs %f)\n", localub, solution->value);
+	}
+
+	if(localub <= solution->value) {
+		if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+		    printf("Node killed!\n");
+		}
+
+		free(items); items = NULL;
 		return;
 	}
 
-
-
-	// possibly update the incumbent
-	if ( desol.lb > solution->value ) {
+	// Possibly update the incumbent
+	if(desol.lb > solution->value ) {
 		solution->value = desol.lb;
-		for ( size_t i = 0; i < instance->n_items; ++i) 
-		for ( size_t i = 0; i < instance->n_items; ++i) 
-		{
-			if ( x[i] >= 0 ) solution->x[i] = x[i];
+
+		for(size_t i = 0u; i < instance->n_items; ++i) {
+			if(x[i] != UNFIXED) {
+			    solution->x[i] = x[i];
+			}
 		}
-		for ( size_t i = 0; i < desol.n_items; ++i)
-		{
-			size_t j = desol.items[i];
-			solution->x[j] = 1;
+
+		for(size_t i = 0u; i < desol.n_items; ++i) {
+			solution->x[desol.items[i]] = 1;
 		}
-		printf("solution update: new value %f\n", solution->value);
+
+		if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+            printf("Solution update: new value %f\n", solution->value);
+        }
 	}
 
-	// find the branching item
-	int jbra = branch_item(instance, x, resCapa);
-	if ( jbra < 0 ) 
-	{
-		if ( PRILEV >= 1000 ) printf("no branching item\n");
+	tbkp_desol_free_inside(&desol);
 
-		// all uncertain items have been fixed: solve a knapsack instance induced by the unfixed deterministic items
-		int n_items = 0;
-		for ( size_t i = 0; i < instance->n_items; ++i) if ( (instance->probabilities[i] > 1.0 - EPS) && (x[i] < 0) ) n_items++;
-		if ( n_items > 0 ) 
-		{
-			cmb_item* cmb_items = malloc(n_items * sizeof(*cmb_items));
+	// Find the branching item
+	int jbra = tbkp_bb_branch_item(instance, x, res_capacity);
+
+	if(jbra == NO_TIMEBOMB_ITEM_TO_BRANCH) {
+		if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+		    printf("No branching item!\n");
+		}
+
+		// All uncertain items have been fixed: solve a knapsack instance induced by the unfixed deterministic items.
+		size_t n_det_items = 0u;
+		for(size_t i = 0; i < instance->n_items; ++i) {
+		    if(instance->probabilities[i] > 1.0 - EPS) {
+		        // Deterministic items should all be unfixed.
+		        assert(x[i] == UNFIXED);
+		        n_det_items++;
+		    }
+		}
+
+		if(n_det_items > 0u) {
+			cmb_item* cmb_items = malloc(n_det_items * sizeof(*cmb_items));
 			cmb_stype sumW = 0;
 			cmb_stype sumP = 0;
-			int cnt = 0;
-			for ( size_t i = 0; i < instance->n_items; ++i ) 
-			{
-				if ( (instance->probabilities[i] > 1.0 - EPS) && (x[i] < 0) ) 
-				{
-					cmb_items[cnt] = (cmb_item) 
+
+			if(!cmb_items) {
+			    printf("Cannot allocate memory for COMBO deterministic items\n");
+			    exit(EXIT_FAILURE);
+			}
+
+			size_t det_cnt = 0u;
+			for(size_t i = 0; i < instance->n_items; ++i) {
+				if((instance->probabilities[i] > 1.0 - EPS)) {
+				    assert(x[i] == UNFIXED);
+
+					cmb_items[det_cnt] = (cmb_item)
 					{
 						.p = (cmb_itype) instance->profits[i],
 						.w = (cmb_itype) instance->weights[i],
 						.x = 0,
-						.pos = (int) i
+						.pos = i
 					};
-					sumW += cmb_items[cnt].w;
-					sumP += cmb_items[cnt].p;
-					cnt++;
+					sumW += cmb_items[det_cnt].w;
+					sumP += cmb_items[det_cnt].p;
+                    det_cnt++;
 				}
 			}
-			int myz = 0;
-			if ( sumW > resCapa ) 
-			{
-				const long cmb_z = combo(&cmb_items[0], &cmb_items[n_items - 1], (cmb_stype)resCapa, 0, INT32_MAX, true, false);
-				myz = cmb_z;
-			}
-			else
-			{	
+
+			cmb_stype myz = 0;
+			// COMBO crashes if the total weight is less than the capacity!
+			if((uint_fast32_t) sumW > res_capacity) {
+				myz = combo(&cmb_items[0], &cmb_items[n_det_items - 1], (cmb_stype)res_capacity, 0, INT32_MAX, true, false);
+			} else {
 				myz = sumP;
-				for (int cnt = 0; cnt < n_items; ++cnt ) cmb_items[cnt].x = 1;
+				for(size_t i = 0u; i < n_det_items; ++i) {
+				    cmb_items[i].x = 1;
+				}
 			}
 
-			// compute the new solution value and possibly update the incumbent
-			const long sumprof = sum_Profits + myz;
-			double zz = sumprof * prod_Probab;	
+			// Compute the new solution value and possibly update the incumbent
+			uint_fast32_t sumprof = sum_profits + (uint_fast32_t)myz;
+			float zz = (float)sumprof * prod_probabilities;
 
-			if ( PRILEV >= 1000 ) printf("myz %d, sumprof %d -> zz %f (bestZ %f)\n", (int) myz, (int) sumprof, zz, solution->value);
+			if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+			    printf("Det combo solution: %ld, sumprof: %" PRIuFAST32 " => New z: %f (best z: %f)\n",
+			            myz, sumprof, zz, solution->value);
+			}
 
-			// possibly update the incumbent
-			if ( zz > solution->value ) 
-			{
+			// Possibly update the incumbent
+			if(zz > solution->value ) {
 				solution->value = zz;
-				for ( size_t i = 0; i < instance->n_items; i++ ) 
-				{
-					if ( x[i] == 1 ) solution->x[i] = 1;
-					else solution->x[i] = 0;
+
+				// Time-bomb objects
+				for(size_t i = 0u; i < instance->n_items; ++i) {
+					if(x[i] == FIXED_PACK) {
+					    solution->x[i] = 1;
+					} else {
+					    solution->x[i] = 0;
+					}
 				}
-				for (int cnt = 0; cnt < n_items; ++cnt ) 
-				{
-					if ( cmb_items[cnt].x > 0.5 ) 
-					{
-						int i = cmb_items[cnt].pos;
-						solution->x[i] = 1;
+
+				// Non-time-bomb objects
+				for(size_t i = 0u; i < n_det_items; ++i) {
+					if(cmb_items[i].x) {
+						solution->x[cmb_items[i].pos] = 1;
 					}
 				}
 			}
 		}
-		free(items);
+
+		free(items); items = NULL;
 		return;
 	}
 
 	// Left node: fix the item in the solution
-	uint_fast32_t new_resCapa = resCapa - instance->weights[jbra];
-	uint_fast32_t newsum_Profits = sum_Profits + instance->profits[jbra];
-	float newProd_Probab = prod_Probab * instance->probabilities[jbra];
-	x[jbra] = 1;
-	if ( PRILEV >= 1000 ) 
-	{
-		printf("node %d; item jbra=%d (prof %d, peso %d, prob %f) fissato\n", currnode, (int) jbra, (int) instance->profits[jbra], (int) instance->weights[jbra], instance->probabilities[jbra]);
-		printf("chiamo solve_node con new_resCapa %d, ", (int) new_resCapa);
-		printf("newsum_Profits %d, newProd_Probab %f\n", (int) newsum_Profits, newProd_Probab);
+	uint_fast32_t new_res_capacity = res_capacity - instance->weights[jbra];
+	uint_fast32_t new_sum_profits = sum_profits + instance->profits[jbra];
+	float new_prod_probabilities = prod_probabilities * instance->probabilities[jbra];
+
+	// Fix the item: pack it!
+	x[jbra] = FIXED_PACK;
+
+	if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+	    printf("[NODE %zu] Branching on item %d (profit: %" PRIuFAST32 ", weight %" PRIuFAST32 ", prob %.3f)\n",
+	            current_node, jbra, instance->profits[jbra], instance->weights[jbra], instance->probabilities[jbra]);
+	    printf("\tPacking the item\n");
+	    printf("\tResidual capacity in the child node: %" PRIuFAST32 "\n", new_res_capacity);
+	    printf("\tSum of profits in the child node: %" PRIuFAST32 "\n", new_sum_profits);
+	    printf("\tProduct of probabilities in the child node: %.3f\n", new_prod_probabilities);
 	}
 
-	solve_node(instance, nnodes, x, newProd_Probab, newsum_Profits, new_resCapa, solution);
+	tbkp_bb_solve_node(instance, nnodes, x, new_prod_probabilities, new_sum_profits, new_res_capacity, solution);
 
-	if ( PRILEV >= 1000 ) printf("\n\ntornato dal left node: nodo %d (nnodes %d)\n", currnode, *nnodes);
+	if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+	    printf("Returned from left node %zu to father node %zu\n", *nnodes, current_node);
+	}
 
 	// Right node: remove the item
-	new_resCapa = resCapa;
-	newsum_Profits = sum_Profits;
-	newProd_Probab = prod_Probab;
-	x[jbra] = 0;
-	if ( PRILEV >= 1000 ) 
-	{
-		printf("node %d; item jbra=%d (prof %d, peso %d, prob %f) rimosso\n", currnode, (int) jbra, (int) instance->profits[jbra], (int) instance->weights[jbra], instance->probabilities[jbra]);
-		printf("chiamo solve_node con new_resCapa %d, ", (int) new_resCapa);
-		printf("newsum_Profits %d, newProd_Probab %f\n", (int) newsum_Profits, newProd_Probab);
+	new_res_capacity = res_capacity;
+    new_sum_profits = sum_profits;
+    new_prod_probabilities = prod_probabilities;
+
+    // Fix the item: don't pack it!
+	x[jbra] = FIXED_DONT_PACK;
+
+	if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+        printf("[NODE %zu] Branching on item %d (profit: %" PRIuFAST32 ", weight %" PRIuFAST32 ", prob %.3f)\n",
+               current_node, jbra, instance->profits[jbra], instance->weights[jbra], instance->probabilities[jbra]);
+        printf("\tExcluding the item\n");
+        printf("\tResidual capacity in the child node: %" PRIuFAST32 "\n", new_res_capacity);
+        printf("\tSum of profits in the child node: %" PRIuFAST32 "\n", new_sum_profits);
+        printf("\tProduct of probabilities in the child node: %.3f\n", new_prod_probabilities);
 	}
 
-	solve_node(instance, nnodes, x, newProd_Probab, newsum_Profits, new_resCapa, solution);
+	tbkp_bb_solve_node(instance, nnodes, x, new_prod_probabilities, new_sum_profits, new_res_capacity, solution);
 
-	if ( PRILEV >= 1000 ) printf("\n\ntornato dal right node: nodo %d (nnodes %d)\n", currnode, *nnodes);
+    if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+        printf("Returned from right node %zu to father node %zu\n", *nnodes, current_node);
+    }
 
-	x[jbra] = -1;
+	// Unfix the item.
+	x[jbra] = UNFIXED;
 
-	free(items);
-	return;
+	free(items); items = NULL;
 }

@@ -58,16 +58,15 @@ int main() {
     tbkp_boolsol_print(&lin_boolsol);
     tbkp_boolsol_free_inside(&lin_boolsol);
 
+    printf("Launching the branch-and-bound algorithm...\n");
+    TBKPSolution* bbsol = tbkp_branch_and_bound(instance);
+
+    tbkp_sol_print(bbsol, instance);
+    tbkp_sol_free(&bbsol);
+
+    // Clean up
     GRBfreeenv(grb_env);
-
-
-    // branch-and-bound
-    int optimal = branch_and_bound(instance);
-    printf("optimal %d\n", optimal);
-
-
     tbkp_instance_free(&instance);
-
     free(items); items = NULL;
 
     return 0;
