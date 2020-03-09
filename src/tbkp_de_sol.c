@@ -65,6 +65,11 @@ TBKPDeterministicEqSol tbkp_desol_get(
 
     size_t* ub_items = malloc(n_ub_items * sizeof(*ub_items));
 
+    if(!ub_items) {
+        printf("Cannot allocate memory for UB items\n");
+        exit(EXIT_FAILURE);
+    }
+
     // We use this loop to create the list of the items packed by COMBO, but also to compute
     // the second part of the 01-KP objective function (the product of the probabilities).
     size_t curr_id = 0u;
