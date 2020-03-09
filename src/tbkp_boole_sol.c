@@ -37,7 +37,11 @@ TBKPBoolSol tbkp_boolsol_lin_gurobi_get(
         for(size_t j = 0u; j < n_items; ++j) {
             double coeff = (double) instance->profits[items[i]];
             coeff *= (1.0 - instance->probabilities[items[j]]);
-            coeff *= -1.0;
+            coeff *= -2.0;  // Double the coefficient because in the model we have the full matrix, not just the
+                            // upper triangular one which gurobi requires. So effectively we have both terms
+                            // - (1-\pi_{j'}) * p_j  * z_{j j'} [...]
+                            // - (1-\pi_j) * p_{j'} * z_{j' j} [...]
+                            
             // z variables:
             error = GRBaddvar(grb_model, 0, NULL, NULL, coeff, 0.0, 1.0, GRB_BINARY, NULL);
 
