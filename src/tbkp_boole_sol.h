@@ -18,13 +18,20 @@ extern GRBenv* grb_env;
 typedef struct {
     /** Lower bound given by any solution to the Boole BQ problem. The optimal
      *  solution gives the tightest bound, but it's not necessary to have it:
-     *  any solution gives a LB.
+     *  any solution can give a LB.
      *
-     *  The objective function of the Boole BQ problem is a lower bound. Additionally,
-     *  one can compute the 01-TB-KP objective value on the items packed by
-     *  the Boole BQ solution. At the end, one can take the highest of the two.
+     *  The objective function of the Boole BQ problem is a lower bound. However,
+     *  we can obtain a tighter LB by computing the original TBKP objective
+     *  function using the items packed in the Boole BQ problem, which is what
+     *  we store in this variable.
      */
     float lb;
+
+    /** Part of the LB coming from the sum of the profits. */
+    float lb_sum_profits;
+
+    /** Part of the LB coming from the product of the probabilities. */
+    float lb_product_probabilities;
 
     /** Number of items packed in the solution of the Boole BQ problem. */
     size_t n_items;
@@ -84,6 +91,7 @@ TBKPBoolSol tbkp_boolsol_lin_gurobi_get(
 void tbkp_boolsol_compute_exact_obj(
         const TBKPInstance* instance,
         TBKPBoolSol* sol);
+
 void tbkp_boolsol_print(const TBKPBoolSol* sol);
 void tbkp_boolsol_free_inside(TBKPBoolSol* boolsol_ptr);
 

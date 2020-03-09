@@ -191,7 +191,15 @@ TBKPBoolSol tbkp_boolsol_lin_gurobi_get(
     free(cst_val); cst_val = NULL;
     free(solution); solution = NULL;
 
-    return (TBKPBoolSol){ .lb = (float)obj, .n_items = grb_n_items, .items = grb_packed_items };
+    TBKPBoolSol sol = { .n_items = grb_n_items, .items = grb_packed_items };
+    tbkp_boolsol_compute_exact_obj(instance, &sol);
+
+    if(sol.lb < obj) {
+        printf("Error: recomputed objective lower than Boole objective (%f vs %f)\n", sol.lb, obj);
+        exit(EXIT_FAILURE);
+    }
+
+    return sol;
 }
 
 TBKPBoolSol tbkp_boolsol_quad_gurobi_get(
@@ -367,26 +375,36 @@ TBKPBoolSol tbkp_boolsol_quad_gurobi_get(
     free(cst_val); cst_val = NULL;
     free(solution); solution = NULL;
 
-    return (TBKPBoolSol){ .lb = (float)obj, .n_items = grb_n_items, .items = grb_packed_items };
+    TBKPBoolSol sol = { .n_items = grb_n_items, .items = grb_packed_items };
+    tbkp_boolsol_compute_exact_obj(instance, &sol);
+
+    if(sol.lb < obj) {
+        printf("Error: recomputed objective lower than Boole objective (%f vs %f)\n", sol.lb, obj);
+        exit(EXIT_FAILURE);
+    }
+
+    return sol;
 }
 
 void tbkp_boolsol_compute_exact_obj(
         const TBKPInstance *const instance,
         TBKPBoolSol *const sol)
 {
-    float new_lb = 0.0f;
+    float lb_sum = 0.0f;
 
     for(size_t i = 0u; i < sol->n_items; ++i) {
-        new_lb += (float)instance->profits[sol->items[i]];
+        lb_sum += (float)instance->profits[sol->items[i]];
     }
+
+    float lb_prod = 1.0f;
 
     for(size_t i = 0u; i < sol->n_items; ++i) {
-        new_lb *= instance->probabilities[sol->items[i]];
+        lb_prod *= instance->probabilities[sol->items[i]];
     }
 
-    if(new_lb > sol->lb) {
-        sol->lb = new_lb;
-    }
+    sol->lb = lb_sum * lb_prod;
+    sol->lb_sum_profits = lb_sum;
+    sol->lb_product_probabilities = lb_prod;
 }
 
 void tbkp_boolsol_print(const TBKPBoolSol *const sol) {

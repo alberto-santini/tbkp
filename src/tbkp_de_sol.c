@@ -52,14 +52,14 @@ TBKPDeterministicEqSol tbkp_desol_get(
     const float ub = (float)cmb_ub / cmb_multiplier;
 
     size_t n_ub_items = 0;
-    float lb = 0.0f;
+    float lb_sum = 0.0f;
 
     // We use this loop to count how many items are packed by COMBO, but also to compute
     // the first part of the 01-KP objective function (the sum of the profits).
     for(size_t i = 0; i < n_items; ++i) {
         if(cmb_items[i].x) {
             ++n_ub_items;
-            lb += (float) instance->profits[items[cmb_items[i].pos]];
+            lb_sum += (float) instance->profits[items[cmb_items[i].pos]];
         }
     }
 
@@ -73,20 +73,28 @@ TBKPDeterministicEqSol tbkp_desol_get(
     // We use this loop to create the list of the items packed by COMBO, but also to compute
     // the second part of the 01-KP objective function (the product of the probabilities).
     size_t curr_id = 0u;
+    float lb_prod = 1.0f;
     for(size_t i = 0; i < n_items; ++i) {
         if(cmb_items[i].x) {
             ub_items[curr_id++] = items[cmb_items[i].pos];
-            lb *= instance->probabilities[items[cmb_items[i].pos]];
+            lb_prod *= instance->probabilities[items[cmb_items[i].pos]];
         }
     }
 
     // TODO: Check if we need the item ids to be sorted.
-    // If not, remove the following line.
-    pdqsort_c(ub_items, n_ub_items);
+    // If so, uncomment the following line.
+    // pdqsort_c(ub_items, n_ub_items);
 
     free(cmb_items); cmb_items = NULL;
 
-    return (TBKPDeterministicEqSol) {.ub = ub, .lb = lb, .n_items = n_ub_items, .items = ub_items};
+    return (TBKPDeterministicEqSol) {
+        .ub = ub,
+        .lb = lb_sum * lb_prod,
+        .lb_profit_sum = lb_sum,
+        .lb_probability_product = lb_prod,
+        .n_items = n_ub_items,
+        .items = ub_items
+    };
 }
 
 void tbkp_desol_free_inside(TBKPDeterministicEqSol *const desol_ptr) {

@@ -44,17 +44,11 @@ int main() {
     TBKPBoolSol boolsol = tbkp_boolsol_quad_gurobi_get(instance, instance->n_items, items, instance->capacity);
 
     tbkp_boolsol_print(&boolsol);
-    printf("Checking if exact objective value is better...\n");
-    tbkp_boolsol_compute_exact_obj(instance, &boolsol);
-    tbkp_boolsol_print(&boolsol);
     tbkp_boolsol_free_inside(&boolsol);
 
     printf("Getting LB solving the linearisation...\n");
     TBKPBoolSol lin_boolsol = tbkp_boolsol_lin_gurobi_get(instance, instance->n_items, items, instance->capacity);
 
-    tbkp_boolsol_print(&lin_boolsol);
-    printf("Checking if the exact objective value is better...\n");
-    tbkp_boolsol_compute_exact_obj(instance, &lin_boolsol);
     tbkp_boolsol_print(&lin_boolsol);
     tbkp_boolsol_free_inside(&lin_boolsol);
 

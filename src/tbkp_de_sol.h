@@ -22,6 +22,12 @@ typedef struct {
      */
     float lb;
 
+    /** Part of the LB coming from summing the profits. */
+    float lb_profit_sum;
+
+    /** Part of the LB coming from multiplying the probabilities. */
+    float lb_probability_product;
+
     /** Number of items packed in the solution of the deterministic equivalent 0-1 KP. */
     size_t n_items;
 
