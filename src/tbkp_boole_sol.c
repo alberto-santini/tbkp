@@ -103,7 +103,8 @@ TBKPBoolSol tbkp_boolsol_lin_gurobi_get(
 
                 double lcst_val[3] = {-1.0, -1.0, 1.0};
 
-                error = GRBaddconstr(grb_model, 3, lcst_ind, lcst_val, GRB_LESS_EQUAL, -1.0, NULL);
+                error = GRBaddconstr(grb_model, 3, lcst_ind, lcst_val, GRB_GREATER_EQUAL, -1.0, NULL);
+                ////error = GRBaddconstr(grb_model, 3, lcst_ind, lcst_val, GRB_LESS_EQUAL, -1.0, NULL);
 
                 if(error) {
                     printf("Gurobi addcstr error on (%zu, %zu): %d\n", i, j, error);
