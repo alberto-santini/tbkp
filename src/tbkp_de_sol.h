@@ -23,7 +23,7 @@ typedef struct {
     float lb;
 
     /** Part of the LB coming from summing the profits. */
-    float lb_profit_sum;
+    uint_fast32_t lb_profit_sum;
 
     /** Part of the LB coming from multiplying the probabilities. */
     float lb_probability_product;

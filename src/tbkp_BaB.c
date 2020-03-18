@@ -186,17 +186,18 @@ void tbkp_bb_solve_node(
 	}
 
 	// Possibly update the incumbent
-	double locallb = (desol.lb_profit_sum+sum_profits)*(desol.lb_probability_product*prod_probabilities);
+	float local_lb = (float) (desol.lb_profit_sum + sum_profits) *
+	                 (desol.lb_probability_product * prod_probabilities);
 	if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
 	    printf("LB from deterministic relaxation solution: %f\n", desol.lb);
-	    printf("Sum of profits: %d (fixed %d), ", (int) desol.lb_profit_sum, sum_profits);
+	    printf("Sum of profits: %d (fixed %" PRIuFAST32 "), ", (int) desol.lb_profit_sum, sum_profits);
 	    printf("Product of probabilities %f (fixed %f)\n", desol.lb_probability_product, prod_probabilities);
-            printf("Local LB: %f (vs %f)\n", locallb, solution->value);
+            printf("Local LB: %f (vs %f)\n", local_lb, solution->value);
         }
-	if( locallb > solution->value ) {
-		solution->value = locallb;
+	if(local_lb > solution->value ) {
+		solution->value = local_lb;
 		solution->prod_probabilities = desol.lb_probability_product*prod_probabilities;
-		solution->sum_profits = desol.lb_profit_sum+sum_profits;
+		solution->sum_profits = desol.lb_profit_sum + sum_profits;
 
 		for(size_t i = 0u; i < instance->n_items; ++i) {
 			if(x[i] != UNFIXED) {

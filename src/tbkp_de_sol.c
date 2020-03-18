@@ -52,14 +52,14 @@ TBKPDeterministicEqSol tbkp_desol_get(
     const float ub = (float)cmb_ub / cmb_multiplier;
 
     size_t n_ub_items = 0;
-    float lb_sum = 0.0f;
+    uint_fast32_t lb_sum = 0;
 
     // We use this loop to count how many items are packed by COMBO, but also to compute
     // the first part of the 01-KP objective function (the sum of the profits).
     for(size_t i = 0; i < n_items; ++i) {
         if(cmb_items[i].x) {
             ++n_ub_items;
-            lb_sum += (float) instance->profits[items[cmb_items[i].pos]];
+            lb_sum += instance->profits[items[cmb_items[i].pos]];
         }
     }
 
@@ -89,7 +89,7 @@ TBKPDeterministicEqSol tbkp_desol_get(
 
     return (TBKPDeterministicEqSol) {
         .ub = ub,
-        .lb = lb_sum * lb_prod,
+        .lb = (float) lb_sum * lb_prod,
         .lb_profit_sum = lb_sum,
         .lb_probability_product = lb_prod,
         .n_items = n_ub_items,
