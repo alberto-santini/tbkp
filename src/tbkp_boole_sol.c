@@ -72,8 +72,8 @@ TBKPBoolSol tbkp_boolsol_lin_gurobi_get(
         exit(EXIT_FAILURE);
     }
 
-    // n^2 constraints: z_{ij} <= x_i + x_j - 1
-    // i.e. -x_i -x_j + z_{ij} <= -1
+    // n^2 constraints: z_{ij} >= x_i + x_j - 1
+    // i.e. -x_i -x_j + z_{ij} >= -1
     for(size_t i = 0u; i < n_items; ++i) {
         for(size_t j = 0u; j < n_items; ++j) {
             if(i == j) {
@@ -103,7 +103,7 @@ TBKPBoolSol tbkp_boolsol_lin_gurobi_get(
 
                 double lcst_val[3] = {-1.0, -1.0, 1.0};
 
-                error = GRBaddconstr(grb_model, 3, lcst_ind, lcst_val, GRB_LESS_EQUAL, -1.0, NULL);
+                error = GRBaddconstr(grb_model, 3, lcst_ind, lcst_val, GRB_GREATER_EQUAL, -1.0, NULL);
 
                 if(error) {
                     printf("Gurobi addcstr error on (%zu, %zu): %d\n", i, j, error);
