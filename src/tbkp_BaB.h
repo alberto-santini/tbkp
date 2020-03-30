@@ -61,7 +61,7 @@ TBKPSolution* tbkp_branch_and_bound(const TBKPInstance* instance);
  * @param capacity  Residual capacity of the knapsack.
  * @return          The index of the item to branch on, or NO_TIMEBOMB_ITEM_TO_BRANCH.
  */
-int tbkp_bb_branch_item(const TBKPInstance* instance, const TBKPBBFixedStatus* x, uint_fast32_t capacity);
+int tbkp_bb_branch_item(const TBKPInstance* instance, const TBKPBBFixedStatus* x, uint_fast32_t capacity, uint_fast32_t sum_profits);
 
 /** Solves a Branch-and-Bound node and possible updates the current solution.
  *

@@ -50,7 +50,7 @@ void tbkp_sol_print(TBKPSolution* solution, const TBKPInstance *const instance) 
 
 	for(size_t i = 0u; i < instance->n_items; ++i) {
 		if(solution->x[i]) {
-			printf("\tObj %zu, profit %" PRIuFAST32 ", weight %"PRIuFAST32 ", prob %.2f\n",
+			printf("\tObj %zu, profit %3d, weight %3d, prob %.2f\n",
 					i, instance->profits[i], instance->weights[i], instance->probabilities[i]);
 		}
 	}
@@ -90,15 +90,21 @@ TBKPSolution* tbkp_branch_and_bound(const TBKPInstance *const instance) {
 	tbkp_bb_solve_node(instance, &nnodes, x, prob_probabilities, sum_profits, residual_capacity, solution);
 
 	free(x); x = NULL;
+
+	printf("\n** total number of nodes explored %d **\n\n", (int) nnodes);
 	return solution;
 }
 
-int tbkp_bb_branch_item(const TBKPInstance *const instance, const TBKPBBFixedStatus *const x, uint_fast32_t capacity) {
+int tbkp_bb_branch_item(const TBKPInstance *const instance, const TBKPBBFixedStatus *const x, uint_fast32_t capacity, uint_fast32_t sum_profits) {
 	// Find the first uncertain item that is not fixed and fits in the residual capacity
 	for(size_t i = 0u; i < instance->n_items; ++i) {
 		if(instance->probabilities[i] > 1.0 - EPS) continue;
 		if(x[i] != UNFIXED) continue;
 		if(instance->weights[i] > capacity) continue;
+
+		// pruning: skip branch in case the solution value cannot increase
+		float scorej = 1.0 * instance->profits[i] * instance->probabilities[i] / (1.0 - instance->probabilities[i]);
+		if ( scorej < sum_profits ) continue;
 
 		return (int)i;
 	}
@@ -217,7 +223,7 @@ void tbkp_bb_solve_node(
 	tbkp_desol_free_inside(&desol);
 
 	// Find the branching item
-	int jbra = tbkp_bb_branch_item(instance, x, res_capacity);
+	int jbra = tbkp_bb_branch_item(instance, x, res_capacity, sum_profits);
 
 	if(jbra == NO_TIMEBOMB_ITEM_TO_BRANCH) {
 		if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
