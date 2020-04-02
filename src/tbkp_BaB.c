@@ -370,6 +370,8 @@ void tbkp_bb_solve_node(
 					}
 				}
 			}
+
+            free(cmb_items); cmb_items = NULL;
 		}
 
 		free(items); items = NULL;
