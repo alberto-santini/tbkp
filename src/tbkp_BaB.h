@@ -8,6 +8,7 @@
 #include "tbkp_instance.h"
 #include <stddef.h>
 #include <stdbool.h>
+#include <time.h>
 
 #define NO_TIMEBOMB_ITEM_TO_BRANCH -1
 
@@ -27,7 +28,7 @@ typedef struct {
 } TBKPSolution;
 
 TBKPSolution* tbkp_sol_init(const TBKPInstance* instance);
-void tbkp_sol_print(TBKPSolution* solution, const TBKPInstance* instance);
+void tbkp_sol_print(const TBKPSolution *const solution, const TBKPInstance* instance);
 void tbkp_sol_free(TBKPSolution** solution_ptr);
 
 /** Represents the current status of an item in the branch-and-bound tree.
@@ -42,12 +43,31 @@ typedef enum {
     FIXED_PACK = 1
 } TBKPBBFixedStatus;
 
+/** Collects statistics on the B&B solution process. */
+typedef struct {
+    clock_t start_time;
+    clock_t end_time;
+    float timeout;
+    float elapsed_time;
+    float ub; /* Starts at value -1.0f */
+    float lb;
+    float gap;
+    size_t n_nodes;
+} TBKPStats;
+
+/** Initialises an empty statistics object. */
+TBKPStats tbkp_stats_init(float timeout);
+
+/** Prints a summary of the statistics/ */
+void tbkp_stats_print(const TBKPStats *const stats);
+
 /** Solves the Time-Bomb Knapsack Problem by branch and bound.
  *
  * @param instance  The TBKP instance we are solving.
+ * @param stats     Object where to save solution statistics.
  * @return          A pointer to the solution of the problem.
  */
-TBKPSolution* tbkp_branch_and_bound(const TBKPInstance* instance);
+TBKPSolution* tbkp_branch_and_bound(const TBKPInstance* instance, TBKPStats* stats);
 
 /** Finds the next time-bomb item to branch on. If no such item exists (because we either
  *  ran out of TB items, or there is no item which fits in the residual capacity), returns
@@ -77,9 +97,11 @@ void tbkp_bb_solve_node(
         const TBKPInstance* instance,
         size_t* nnodes,
         TBKPBBFixedStatus* x,
+        float parent_ub,
         float prod_probabilities,
         uint_fast32_t sum_profits,
         uint_fast32_t res_capacity,
-        TBKPSolution *solution);
+        TBKPSolution *solution,
+        TBKPStats* stats);
 
 #endif //TBKP_TBKP_UB_H

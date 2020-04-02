@@ -2,6 +2,7 @@
 #include "tbkp_de_sol.h"
 #include "tbkp_boole_sol.h"
 #include "tbkp_BaB.h"
+#include <argparse.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -9,8 +10,42 @@
 
 GRBenv* grb_env = NULL;
 
-int main() {
-    TBKPInstance* instance = tbkp_instance_read("../data/example.txt");
+typedef struct Params {
+    char* instance_file;
+    float timeout_s;
+} Params;
+
+Params parse_arguments(int argc, const char** argv) {
+    Params p = {.instance_file = NULL, .timeout_s = 3600.0f};
+
+    static const char *const usage[] = {
+            "tbkp [options]",
+            NULL
+    };
+
+    struct argparse_option options[] = {
+        OPT_HELP(),
+        OPT_STRING('i', "instance", &p.instance_file, "path of the instance"),
+        OPT_FLOAT('t', "timeout", &p.timeout_s, "timeout in seconds"),
+        OPT_END()
+    };
+
+    struct argparse argparse;
+    argparse_init(&argparse, options, usage, 0);
+    argc = argparse_parse(&argparse, argc, argv);
+
+    if(!p.instance_file) {
+        printf("You have to specify an instance file!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    return p;
+}
+
+int main(int argc, const char** argv) {
+    Params p = parse_arguments(argc, argv);
+
+    TBKPInstance* instance = tbkp_instance_read(p.instance_file);
     int error = GRBloadenv(&grb_env, NULL);
 
     if(error) {
@@ -29,39 +64,21 @@ int main() {
     tbkp_instance_print(instance);
     printf("\n\n");
 
-    size_t* items = malloc(instance->n_items * sizeof(*items));
-    for(size_t i = 0; i < instance->n_items; ++i) {
-        items[i] = i;
-    }
-
-    printf("Getting an upper bound solving a deterministic 01KP\n");
-    TBKPDeterministicEqSol desol = tbkp_desol_get(instance, instance->n_items, items, instance->capacity);
-
-    tbkp_desol_print(&desol);
-    tbkp_desol_free_inside(&desol);
-
-    printf("Getting LB solving the quadratic programme...\n");
-    TBKPBoolSol boolsol = tbkp_boolsol_quad_gurobi_get(instance, instance->n_items, items, instance->capacity);
-
-    tbkp_boolsol_print(&boolsol);
-    tbkp_boolsol_free_inside(&boolsol);
-
-    printf("Getting LB solving the linearisation...\n");
-    TBKPBoolSol lin_boolsol = tbkp_boolsol_lin_gurobi_get(instance, instance->n_items, items, instance->capacity);
-
-    tbkp_boolsol_print(&lin_boolsol);
-    tbkp_boolsol_free_inside(&lin_boolsol);
+    TBKPStats stats = tbkp_stats_init(p.timeout_s);
 
     printf("Launching the branch-and-bound algorithm...\n");
-    TBKPSolution* bbsol = tbkp_branch_and_bound(instance);
+    TBKPSolution* bbsol = tbkp_branch_and_bound(instance, &stats);
 
+    printf("\n\nSolution:\n");
     tbkp_sol_print(bbsol, instance);
-    tbkp_sol_free(&bbsol);
+
+    printf("\n\nStats:\n");
+    tbkp_stats_print(&stats);
 
     // Clean up
+    tbkp_sol_free(&bbsol);
+    tbkp_instance_free(&instance); instance = NULL;
     GRBfreeenv(grb_env);
-    tbkp_instance_free(&instance);
-    free(items); items = NULL;
 
     return 0;
 }

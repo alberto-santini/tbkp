@@ -9,13 +9,15 @@
 #include <stdio.h>
 #include <combo.h>
 #include <assert.h>
+#include <float.h>
+#include <time.h>
 
 #ifndef BB_VERBOSITY_CURRENT
 #define BB_VERBOSITY_CURRENT 1001
 #endif
 
 #define BB_VERBOSITY_INFO 1000
-#define EPS 1e-6
+#define EPS 1e-6f
 
 TBKPSolution* tbkp_sol_init(const TBKPInstance *const instance) {
 	TBKPSolution* solution = malloc(sizeof(*solution));
@@ -43,14 +45,14 @@ TBKPSolution* tbkp_sol_init(const TBKPInstance *const instance) {
 	return solution;
 }
 
-void tbkp_sol_print(TBKPSolution* solution, const TBKPInstance *const instance) {
+void tbkp_sol_print(const TBKPSolution *const solution, const TBKPInstance *const instance) {
 	printf("Solution with value %.2f (%" PRIuFAST32 " sum of profits, %.2f prod of probabilities)\n",
 			solution->value, solution->sum_profits, solution->prod_probabilities);
 	printf("Packed objects:\n");
 
 	for(size_t i = 0u; i < instance->n_items; ++i) {
 		if(solution->x[i]) {
-			printf("\tObj %zu, profit %3d, weight %3d, prob %.2f\n",
+			printf("\tObj %zu, profit %3" PRIuFAST32 ", weight %3" PRIuFAST32 "d, prob %.2f\n",
 					i, instance->profits[i], instance->weights[i], instance->probabilities[i]);
 		}
 	}
@@ -61,16 +63,39 @@ void tbkp_sol_free(TBKPSolution** solution_ptr) {
 	free(*solution_ptr); *solution_ptr = NULL;
 }
 
-TBKPSolution* tbkp_branch_and_bound(const TBKPInstance *const instance) {
-	TBKPSolution* solution = tbkp_sol_init(instance);
+TBKPStats tbkp_stats_init(float timeout) {
+    return (TBKPStats) {
+        .start_time = clock(),
+        .end_time = 0,
+        .timeout = timeout,
+        .elapsed_time = 0.0f,
+        .lb = 0.0f,
+        .ub = -1.0f,
+        .gap = FLT_MAX,
+        .n_nodes = 0u
+    };
+}
 
+void tbkp_stats_print(const TBKPStats *const stats) {
+    printf("UB: %.3f; LB: %.3f; Gap: %.3f%%\n", stats->ub, stats->lb, stats->gap * 100.0f);
+    printf("Elapsed time: %.3f seconds\n", stats->elapsed_time);
+    printf("Explored %zu B&B nodes\n", stats->n_nodes);
+}
+
+TBKPSolution* tbkp_branch_and_bound(const TBKPInstance *const instance, TBKPStats* stats) {
+	TBKPSolution* solution = tbkp_sol_init(instance);
 	TBKPBBFixedStatus* x = malloc(instance->n_items * sizeof(*x));
+
+	if(!x) {
+	    printf("Cannot allocate memory for x variables in B&B!\n");
+	    exit(EXIT_FAILURE);
+	}
 
 	for(size_t t = 0u; t < instance->n_items; ++t) {
 		x[t] = UNFIXED;
 	}
 
-	float prob_probabilities = 1.0f;
+	float prod_probabilities = 1.0f;
 	uint_fast32_t sum_profits = 0;
 	uint_fast32_t residual_capacity = instance->capacity;
 
@@ -87,24 +112,41 @@ TBKPSolution* tbkp_branch_and_bound(const TBKPInstance *const instance) {
 		printf("\n");
 	}
 
-	tbkp_bb_solve_node(instance, &nnodes, x, prob_probabilities, sum_profits, residual_capacity, solution);
+	tbkp_bb_solve_node(instance, &nnodes, x, 0.0f, prod_probabilities, sum_profits, residual_capacity, solution, stats);
 
 	free(x); x = NULL;
 
-	printf("\n** total number of nodes explored %d **\n\n", (int) nnodes);
+	stats->end_time = clock();
+	stats->elapsed_time = (float)(stats->end_time - stats->start_time) / CLOCKS_PER_SEC;
+	stats->n_nodes = nnodes;
+
+	if(stats->ub < 0.0f) {
+	    // UB was never updated and we solved the instance to optimality:
+	    stats->ub = stats->lb;
+	}
+
+	stats->gap = (stats->ub - stats->lb) / stats->ub;
+
 	return solution;
 }
 
-int tbkp_bb_branch_item(const TBKPInstance *const instance, const TBKPBBFixedStatus *const x, uint_fast32_t capacity, uint_fast32_t sum_profits) {
+int tbkp_bb_branch_item(
+        const TBKPInstance *const instance,
+        const TBKPBBFixedStatus *const x,
+        uint_fast32_t capacity,
+        uint_fast32_t sum_profits)
+{
 	// Find the first uncertain item that is not fixed and fits in the residual capacity
 	for(size_t i = 0u; i < instance->n_items; ++i) {
-		if(instance->probabilities[i] > 1.0 - EPS) continue;
+		if(instance->probabilities[i] > 1.0f - EPS) continue;
 		if(x[i] != UNFIXED) continue;
 		if(instance->weights[i] > capacity) continue;
 
-		// pruning: skip branch in case the solution value cannot increase
-		float scorej = 1.0 * instance->profits[i] * instance->probabilities[i] / (1.0 - instance->probabilities[i]);
-		if ( scorej < sum_profits ) continue;
+		// Pruning: skip branch in case the solution value cannot increase
+		float scorej = ((float)instance->profits[i] * instance->probabilities[i]) / (1.0f - instance->probabilities[i]);
+		if(scorej < sum_profits) {
+		    continue;
+		}
 
 		return (int)i;
 	}
@@ -112,16 +154,31 @@ int tbkp_bb_branch_item(const TBKPInstance *const instance, const TBKPBBFixedSta
 	return NO_TIMEBOMB_ITEM_TO_BRANCH;
 }
 
-
 void tbkp_bb_solve_node(
         const TBKPInstance *const instance,
         size_t* nnodes,
         TBKPBBFixedStatus* x,
+        float parent_ub,
         float prod_probabilities,
         uint_fast32_t sum_profits,
         uint_fast32_t res_capacity,
-        TBKPSolution *solution
+        TBKPSolution *solution,
+        TBKPStats* stats
 ) {
+    clock_t current_time = clock();
+    float el_time = (float)(current_time - stats->start_time) / CLOCKS_PER_SEC;
+
+    if(el_time > stats->timeout) {
+        stats->n_nodes = *nnodes;
+
+        // Upon timeout, the UB is the worst UB of the open nodes.
+        if(parent_ub > stats->ub) {
+            stats->ub = parent_ub;
+        }
+
+        return;
+    }
+
 	(*nnodes)++;
 
     const size_t current_node = *nnodes;
@@ -174,14 +231,14 @@ void tbkp_bb_solve_node(
 	}
 
 	// Compute the local upper bound and possibly kill the node
-	float localub = ((float)sum_profits + desol.ub) * prod_probabilities;
+	float local_ub = ((float)sum_profits + desol.ub) * prod_probabilities;
 	if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
 	    printf("UB from deterministic relaxation solution: %f\n", desol.ub);
 	    printf("Sum of profits: %" PRIuFAST32 ", Product of probabilities: %f\n", sum_profits, prod_probabilities);
-	    printf("Local UB: %f (vs %f)\n", localub, solution->value);
+	    printf("Local UB: %f (vs %f)\n", local_ub, solution->value);
 	}
 
-	if(localub <= solution->value) {
+	if(local_ub <= solution->value) {
 		if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
 		    printf("Node killed!\n");
 		}
@@ -194,12 +251,18 @@ void tbkp_bb_solve_node(
 	// Possibly update the incumbent
 	float local_lb = (float) (desol.lb_profit_sum + sum_profits) *
 	                 (desol.lb_probability_product * prod_probabilities);
+
 	if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
 	    printf("LB from deterministic relaxation solution: %f\n", desol.lb);
 	    printf("Sum of profits: %d (fixed %" PRIuFAST32 "), ", (int) desol.lb_profit_sum, sum_profits);
 	    printf("Product of probabilities %f (fixed %f)\n", desol.lb_probability_product, prod_probabilities);
-            printf("Local LB: %f (vs %f)\n", local_lb, solution->value);
-        }
+	    printf("Local LB: %f (vs %f)\n", local_lb, solution->value);
+	}
+
+	if(local_lb > stats->lb) {
+	    stats->lb = local_lb;
+	}
+
 	if(local_lb > solution->value ) {
 		solution->value = local_lb;
 		solution->prod_probabilities = desol.lb_probability_product*prod_probabilities;
@@ -269,6 +332,7 @@ void tbkp_bb_solve_node(
 			}
 
 			cmb_stype myz = 0;
+
 			// COMBO crashes if the total weight is less than the capacity!
 			if((uint_fast32_t) sumW > res_capacity) {
 				myz = combo(&cmb_items[0], &cmb_items[n_det_items - 1], (cmb_stype)res_capacity, 0, INT32_MAX, true, false);
@@ -329,7 +393,8 @@ void tbkp_bb_solve_node(
 	    printf("\tProduct of probabilities in the child node: %.3f\n", new_prod_probabilities);
 	}
 
-	tbkp_bb_solve_node(instance, nnodes, x, new_prod_probabilities, new_sum_profits, new_res_capacity, solution);
+	tbkp_bb_solve_node(
+	        instance, nnodes, x, local_ub, new_prod_probabilities, new_sum_profits, new_res_capacity, solution, stats);
 
 	if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
 	    printf("Returned from left node %zu to father node %zu\n", *nnodes, current_node);
@@ -352,7 +417,8 @@ void tbkp_bb_solve_node(
         printf("\tProduct of probabilities in the child node: %.3f\n", new_prod_probabilities);
 	}
 
-	tbkp_bb_solve_node(instance, nnodes, x, new_prod_probabilities, new_sum_profits, new_res_capacity, solution);
+	tbkp_bb_solve_node(
+	        instance, nnodes, x, local_ub, new_prod_probabilities, new_sum_profits, new_res_capacity, solution, stats);
 
     if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
         printf("Returned from right node %zu to father node %zu\n", *nnodes, current_node);
