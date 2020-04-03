@@ -90,8 +90,8 @@ TBKPDeterministicEqSol tbkp_desol_get(
     return (TBKPDeterministicEqSol) {
         .ub = ub,
         .lb = (float) lb_sum * lb_prod,
-        .lb_profit_sum = lb_sum,
-        .lb_probability_product = lb_prod,
+        .lb_sum_profits = lb_sum,
+        .lb_product_probabilities = lb_prod,
         .n_items = n_ub_items,
         .items = ub_items
     };

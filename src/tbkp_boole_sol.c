@@ -8,7 +8,7 @@
 #include <gurobi_c.h>
 #include <assert.h>
 
-TBKPBoolSol tbkp_boolsol_lin_gurobi_get(
+TBKPBooleSol tbkp_boolesol_lin_gurobi_get(
         const TBKPInstance* instance,
         size_t n_items,
         const size_t* items,
@@ -191,8 +191,8 @@ TBKPBoolSol tbkp_boolsol_lin_gurobi_get(
     free(cst_val); cst_val = NULL;
     free(solution); solution = NULL;
 
-    TBKPBoolSol sol = { .n_items = grb_n_items, .items = grb_packed_items };
-    tbkp_boolsol_compute_exact_obj(instance, &sol);
+    TBKPBooleSol sol = { .n_items = grb_n_items, .items = grb_packed_items };
+    tbkp_boolesol_compute_exact_obj(instance, &sol);
 
     if(sol.lb < obj) {
         printf("Error: recomputed objective lower than Boole objective (%f vs %f)\n", sol.lb, obj);
@@ -202,7 +202,7 @@ TBKPBoolSol tbkp_boolsol_lin_gurobi_get(
     return sol;
 }
 
-TBKPBoolSol tbkp_boolsol_quad_gurobi_get(
+TBKPBooleSol tbkp_boolesol_quad_gurobi_get(
         const TBKPInstance* instance,
         size_t n_items,
         const size_t* items,
@@ -375,8 +375,8 @@ TBKPBoolSol tbkp_boolsol_quad_gurobi_get(
     free(cst_val); cst_val = NULL;
     free(solution); solution = NULL;
 
-    TBKPBoolSol sol = { .n_items = grb_n_items, .items = grb_packed_items };
-    tbkp_boolsol_compute_exact_obj(instance, &sol);
+    TBKPBooleSol sol = { .n_items = grb_n_items, .items = grb_packed_items };
+    tbkp_boolesol_compute_exact_obj(instance, &sol);
 
     if(sol.lb < obj) {
         printf("Error: recomputed objective lower than Boole objective (%f vs %f)\n", sol.lb, obj);
@@ -386,14 +386,14 @@ TBKPBoolSol tbkp_boolsol_quad_gurobi_get(
     return sol;
 }
 
-void tbkp_boolsol_compute_exact_obj(
-        const TBKPInstance *const instance,
-        TBKPBoolSol *const sol)
+void tbkp_boolesol_compute_exact_obj(
+        const TBKPInstance *instance,
+        TBKPBooleSol *sol)
 {
-    float lb_sum = 0.0f;
+    uint_fast32_t lb_sum = 0.0f;
 
     for(size_t i = 0u; i < sol->n_items; ++i) {
-        lb_sum += (float)instance->profits[sol->items[i]];
+        lb_sum += instance->profits[sol->items[i]];
     }
 
     float lb_prod = 1.0f;
@@ -402,12 +402,12 @@ void tbkp_boolsol_compute_exact_obj(
         lb_prod *= instance->probabilities[sol->items[i]];
     }
 
-    sol->lb = lb_sum * lb_prod;
+    sol->lb = (float)lb_sum * lb_prod;
     sol->lb_sum_profits = lb_sum;
     sol->lb_product_probabilities = lb_prod;
 }
 
-void tbkp_boolsol_print(const TBKPBoolSol *const sol) {
+void tbkp_boolesol_print(const TBKPBooleSol *sol) {
     printf("LB value: %f\n", sol->lb);
     printf("Objects packed (%zu):\n\t", sol->n_items);
     for(size_t i = 0; i < sol->n_items; ++i) {
@@ -416,6 +416,6 @@ void tbkp_boolsol_print(const TBKPBoolSol *const sol) {
     printf("\n");
 }
 
-void tbkp_boolsol_free_inside(TBKPBoolSol* boolsol_ptr) {
-    free(boolsol_ptr->items); boolsol_ptr->items = NULL;
+void tbkp_boolesol_free_inside(TBKPBooleSol* boolesol_ptr) {
+    free(boolesol_ptr->items); boolesol_ptr->items = NULL;
 }

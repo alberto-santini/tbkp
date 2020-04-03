@@ -28,7 +28,7 @@ typedef struct {
     float lb;
 
     /** Part of the LB coming from the sum of the profits. */
-    float lb_sum_profits;
+    uint_fast32_t lb_sum_profits;
 
     /** Part of the LB coming from the product of the probabilities. */
     float lb_product_probabilities;
@@ -38,7 +38,7 @@ typedef struct {
 
     /** Items packed in the solution of the Boole BQ problem. */
     size_t* items;
-} TBKPBoolSol;
+} TBKPBooleSol;
 
 /** Gets the lower bound from solving the Boole BQ problem as-is, i.e., as
  *  a quadratic problem using the Gurobi optimiser.
@@ -55,7 +55,7 @@ typedef struct {
  * @return          The value of the LB and the objects selected by the Boole
  *                  QB problem.
  */
-TBKPBoolSol tbkp_boolsol_quad_gurobi_get(
+TBKPBooleSol tbkp_boolesol_quad_gurobi_get(
         const TBKPInstance* instance,
         size_t n_items,
         const size_t* items,
@@ -76,7 +76,7 @@ TBKPBoolSol tbkp_boolsol_quad_gurobi_get(
  * @return          The value of the LB and the objects selected by the Boole
  *                  QB problem.
  */
-TBKPBoolSol tbkp_boolsol_lin_gurobi_get(
+TBKPBooleSol tbkp_boolesol_lin_gurobi_get(
         const TBKPInstance* instance,
         size_t n_items,
         const size_t* items,
@@ -88,11 +88,11 @@ TBKPBoolSol tbkp_boolsol_lin_gurobi_get(
  * @param instance  Const pointer to a Time-bomb Knapsack problem.
  * @param sol       Boole BQ solution.
  */
-void tbkp_boolsol_compute_exact_obj(
+void tbkp_boolesol_compute_exact_obj(
         const TBKPInstance* instance,
-        TBKPBoolSol* sol);
+        TBKPBooleSol* sol);
 
-void tbkp_boolsol_print(const TBKPBoolSol* sol);
-void tbkp_boolsol_free_inside(TBKPBoolSol* boolsol_ptr);
+void tbkp_boolesol_print(const TBKPBooleSol* sol);
+void tbkp_boolesol_free_inside(TBKPBooleSol* boolesol_ptr);
 
 #endif //TBKP_TBKP_BOOLE_SOL_H

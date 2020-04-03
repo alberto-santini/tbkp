@@ -53,10 +53,12 @@ typedef struct {
     float lb;
     float gap;
     size_t n_nodes;
+    bool use_de_bounds;
+    bool use_boole_bound;
 } TBKPStats;
 
 /** Initialises an empty statistics object. */
-TBKPStats tbkp_stats_init(float timeout);
+TBKPStats tbkp_stats_init(float timeout, _Bool use_de_bounds, _Bool use_bool_bound);
 
 /** Prints a summary of the statistics to stdout. */
 void tbkp_stats_print(const TBKPStats* stats);

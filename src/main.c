@@ -14,10 +14,18 @@ typedef struct Params {
     char* instance_file;
     char* output_file;
     float timeout_s;
+    _Bool de_bounds;
+    _Bool boole_bound;
 } Params;
 
 Params parse_arguments(int argc, const char** argv) {
-    Params p = {.instance_file = NULL, .output_file = NULL, .timeout_s = 3600.0f};
+    Params p = {
+            .instance_file = NULL,
+            .output_file = NULL,
+            .timeout_s = 3600.0f,
+            .de_bounds = false,
+            .boole_bound = false
+    };
 
     static const char *const usage[] = {
             "tbkp [options]",
@@ -29,6 +37,8 @@ Params parse_arguments(int argc, const char** argv) {
         OPT_STRING('i', "instance", &p.instance_file, "path of the instance"),
         OPT_STRING('o', "output", &p.output_file, "path to the csv output file"),
         OPT_FLOAT('t', "timeout", &p.timeout_s, "timeout in seconds"),
+        OPT_BOOLEAN('d', "debounds", &p.de_bounds, "use the DE bounds"),
+        OPT_BOOLEAN('b', "boolebound", &p.boole_bound, "use the Boole bound"),
         OPT_END()
     };
 
@@ -62,8 +72,7 @@ int main(int argc, const char** argv) {
         exit(EXIT_FAILURE);
     }
 
-
-    TBKPStats stats = tbkp_stats_init(p.timeout_s);
+    TBKPStats stats = tbkp_stats_init(p.timeout_s, p.de_bounds, p.boole_bound);
     TBKPSolution* bbsol = tbkp_branch_and_bound(instance, &stats);
     tbkp_stats_to_file(&stats, p.output_file);
 
