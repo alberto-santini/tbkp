@@ -581,7 +581,7 @@ void tbkp_bb_solve_node(
 		if(boole_lb > local_lb) { local_lb = boole_lb; }
 	}
 
-	if(local_lb > local_ub - EPS && local_lb > EPS) {
+	if(local_lb > local_ub - EPS && local_lb > EPS && local_ub > EPS) {
 	    if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
 	        printf("LB and UB coincide: closing node.\n");
 	    }
