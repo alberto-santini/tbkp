@@ -52,7 +52,7 @@ void tbkp_sol_print(const TBKPSolution *const solution, const TBKPInstance *cons
 
 	for(size_t i = 0u; i < instance->n_items; ++i) {
 		if(solution->x[i]) {
-			printf("\tObj %zu, profit %3" PRIuFAST32 ", weight %3" PRIuFAST32 "d, prob %.2f\n",
+			printf("\tObj %zu, profit %3" PRIuFAST32 ", weight %3" PRIuFAST32 ", prob %.2f\n",
 					i, instance->profits[i], instance->weights[i], instance->probabilities[i]);
 		}
 	}

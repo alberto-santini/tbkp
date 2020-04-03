@@ -62,20 +62,9 @@ int main(int argc, const char** argv) {
         exit(EXIT_FAILURE);
     }
 
-    printf("Instance:\n");
-    tbkp_instance_print(instance);
-    printf("\n\n");
 
     TBKPStats stats = tbkp_stats_init(p.timeout_s);
-
-    printf("Launching the branch-and-bound algorithm...\n");
     TBKPSolution* bbsol = tbkp_branch_and_bound(instance, &stats);
-
-    printf("\n\nSolution:\n");
-    tbkp_sol_print(bbsol, instance);
-
-    printf("\n\nStats:\n");
-    tbkp_stats_print(&stats);
     tbkp_stats_to_file(&stats, p.output_file);
 
     // Clean up

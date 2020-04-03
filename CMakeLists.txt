@@ -52,6 +52,7 @@ target_compile_options(     tbkp PRIVATE $<$<CXX_COMPILER_ID:GNU>:${GCC_WARNING_
 target_compile_options(     tbkp PRIVATE $<$<CONFIG:RELEASE>:${RELEASE_OPTIONS}>)
 target_compile_options(     tbkp PRIVATE $<$<CONFIG:DEBUG>:${DEBUG_OPTIONS}>)
 target_compile_options(     tbkp PRIVATE $<$<AND:$<CONFIG:DEBUG>,$<CXX_COMPILER_ID:GNU>>:${GDB_DEBUG_OPTIONS}>)
+target_compile_definitions( tbkp PRIVATE $<$<CONFIG:RELEASE>:BB_VERBOSITY_CURRENT=0>)
 target_link_libraries(      tbkp PRIVATE combo)
 target_link_libraries(      tbkp PRIVATE pdqsort)
 target_link_libraries(      tbkp PRIVATE argparse)
