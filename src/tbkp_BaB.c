@@ -82,6 +82,25 @@ void tbkp_stats_print(const TBKPStats *const stats) {
     printf("Explored %zu B&B nodes\n", stats->n_nodes);
 }
 
+void tbkp_stats_to_file(const TBKPStats *const stats, const char *const csv_filename) {
+    if(!csv_filename) {
+        return;
+    }
+
+    FILE* f = fopen(csv_filename, "w");
+
+    if(!f) {
+        printf("Error opening csv output file %s\n", csv_filename);
+        exit(EXIT_FAILURE);
+    }
+
+    fprintf(f, "ub,lb,gap,time_s,n_nodes\n");
+    fprintf(f, "%.3f,%.3f,%.3f,%.3f,%zu\n",
+            stats->ub, stats->lb, stats->gap * 100.0f, stats->elapsed_time, stats->n_nodes);
+
+    fclose(f);
+}
+
 TBKPSolution* tbkp_branch_and_bound(const TBKPInstance *const instance, TBKPStats* stats) {
 	TBKPSolution* solution = tbkp_sol_init(instance);
 	TBKPBBFixedStatus* x = malloc(instance->n_items * sizeof(*x));

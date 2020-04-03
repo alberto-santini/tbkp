@@ -12,11 +12,12 @@ GRBenv* grb_env = NULL;
 
 typedef struct Params {
     char* instance_file;
+    char* output_file;
     float timeout_s;
 } Params;
 
 Params parse_arguments(int argc, const char** argv) {
-    Params p = {.instance_file = NULL, .timeout_s = 3600.0f};
+    Params p = {.instance_file = NULL, .output_file = NULL, .timeout_s = 3600.0f};
 
     static const char *const usage[] = {
             "tbkp [options]",
@@ -26,6 +27,7 @@ Params parse_arguments(int argc, const char** argv) {
     struct argparse_option options[] = {
         OPT_HELP(),
         OPT_STRING('i', "instance", &p.instance_file, "path of the instance"),
+        OPT_STRING('o', "output", &p.output_file, "path to the csv output file"),
         OPT_FLOAT('t', "timeout", &p.timeout_s, "timeout in seconds"),
         OPT_END()
     };
@@ -74,6 +76,7 @@ int main(int argc, const char** argv) {
 
     printf("\n\nStats:\n");
     tbkp_stats_print(&stats);
+    tbkp_stats_to_file(&stats, p.output_file);
 
     // Clean up
     tbkp_sol_free(&bbsol);

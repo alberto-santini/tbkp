@@ -58,8 +58,11 @@ typedef struct {
 /** Initialises an empty statistics object. */
 TBKPStats tbkp_stats_init(float timeout);
 
-/** Prints a summary of the statistics/ */
-void tbkp_stats_print(const TBKPStats *const stats);
+/** Prints a summary of the statistics to stdout. */
+void tbkp_stats_print(const TBKPStats* stats);
+
+/** Prints the stats to file as a .csv. */
+void tbkp_stats_to_file(const TBKPStats* stats, const char* csv_filename);
 
 /** Solves the Time-Bomb Knapsack Problem by branch and bound.
  *
