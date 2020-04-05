@@ -11,6 +11,8 @@
 #include <time.h>
 
 #define NO_TIMEBOMB_ITEM_TO_BRANCH -1
+#define INITIAL_UB_PLACEHOLDER -1.0f
+#define INITIAL_LB_PLACEHOLDER 0.0f
 
 /** Represents a solution to the Time-Bomb Knapsack Problem. */
 typedef struct {
@@ -78,25 +80,32 @@ TBKPSolution* tbkp_branch_and_bound(const TBKPInstance* instance, TBKPStats* sta
  *  ran out of TB items, or there is no item which fits in the residual capacity), returns
  *  NO_TIMEBOMB_ITEM_TO_BRANCH.
  *
- * @param instance  The TBKP instance we are solving.
- * @param x         An array keeping track of the branching decisions:
- *                  x[i] == FIXED_DONT_PACK if item i has been fixed to NOT being packed
- *                  x[i] == FIXED_PACK if item i has been fixed to being packed
- *                  x[i] == UNFIXED if item i is unfixed.
- * @param capacity  Residual capacity of the knapsack.
- * @return          The index of the item to branch on, or NO_TIMEBOMB_ITEM_TO_BRANCH.
+ * @param instance    The TBKP instance we are solving.
+ * @param x           An array keeping track of the branching decisions:
+ *                    x[i] == FIXED_DONT_PACK if item i has been fixed to NOT being packed
+ *                    x[i] == FIXED_PACK if item i has been fixed to being packed
+ *                    x[i] == UNFIXED if item i is unfixed.
+ * @param capacity    Residual capacity of the knapsack.
+ * @param sum_profits Sum-of-profits part of the objective function at current node.
+ * @return            The index of the item to branch on, or NO_TIMEBOMB_ITEM_TO_BRANCH.
  */
-int tbkp_bb_branch_item(const TBKPInstance* instance, const TBKPBBFixedStatus* x, uint_fast32_t capacity, uint_fast32_t sum_profits);
+int tbkp_bb_branch_item(
+        const TBKPInstance* instance,
+        const TBKPBBFixedStatus* x,
+        uint_fast32_t capacity,
+        uint_fast32_t sum_profits);
 
 /** Solves a Branch-and-Bound node and possible updates the current solution.
  *
  * @param instance              TBKP instance we are solving.
  * @param nnodes                Number of nodes in the BB tree.
  * @param x                     Vector keeping track of fixed/unfixed tb items.
+ * @param parent_ub             Upper Bound of the parent node.
  * @param prod_probabilities    Product-of-probabilities part of the objective function.
  * @param sum_profits           Sum-of-profits part of the objective function.
  * @param res_capacity          Residual capacity of the knapsack at this node.
  * @param solution              Current solution.
+ * @param stats                 Solution statistics.
  */
 void tbkp_bb_solve_node(
         const TBKPInstance* instance,

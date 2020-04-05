@@ -70,8 +70,8 @@ TBKPStats tbkp_stats_init(float timeout, _Bool use_de_bounds, _Bool use_boole_bo
         .end_time = 0,
         .timeout = timeout,
         .elapsed_time = 0.0f,
-        .lb = 0.0f,
-        .ub = -1.0f,
+        .lb = INITIAL_LB_PLACEHOLDER,
+        .ub = INITIAL_UB_PLACEHOLDER,
         .gap = FLT_MAX,
         .n_nodes = 0u,
         .use_de_bounds = use_de_bounds,
@@ -142,9 +142,16 @@ TBKPSolution* tbkp_branch_and_bound(const TBKPInstance *const instance, TBKPStat
 	stats->elapsed_time = (float)(stats->end_time - stats->start_time) / CLOCKS_PER_SEC;
 	stats->n_nodes = nnodes;
 
-	if(stats->ub < 0.0f) {
-	    // UB was never updated and we solved the instance to optimality:
-	    stats->ub = stats->lb;
+	if(stats->ub == INITIAL_UB_PLACEHOLDER) {
+	    // UB was never updated
+
+	    if(stats->elapsed_time < stats->timeout) {
+            // Instance solved to optimality
+            stats->ub = stats->lb;
+        } else {
+	        // Instance open
+	        stats->ub = FLT_MAX;
+	    }
 	}
 
 	stats->gap = (stats->ub - stats->lb) / stats->ub;
@@ -176,6 +183,18 @@ int tbkp_bb_branch_item(
 	return NO_TIMEBOMB_ITEM_TO_BRANCH;
 }
 
+/************************************************************
+ * LOCAL HELPER FUNCTIONS                                   *
+ ************************************************************/
+
+/**
+ * Checks if timeout occurred while exploring the B&B tree.
+ * It updates the TBKPStats object with
+ * @param stats     Solution statistics
+ * @param parent_ub UB of the parent node of the current node.
+ * @param nnodes    Number of nodes being solved.
+ * @return          Returns true iff a timeout occurred.
+ */
 static _Bool timeout(
         TBKPStats *const stats,
         float parent_ub,
@@ -198,6 +217,12 @@ static _Bool timeout(
 	return false;
 }
 
+/**
+ * Returns the number of unfixed TB items at current node.
+ * @param instance  TBKP instance.
+ * @param x         Array with the status of each item.
+ * @return          The number of items with UNFIXED status.
+ */
 static size_t num_unfixed_items(
         const TBKPInstance *const instance,
         const TBKPBBFixedStatus *const x
@@ -211,6 +236,15 @@ static size_t num_unfixed_items(
 	return n_unfixed_items;
 }
 
+/**
+ * Gives the residual instance at the current node, i.e., the instance without
+ * all fixed TB items.
+ *
+ * @param instance          TBKP instance.
+ * @param x                 List of item statuses.
+ * @param n_unfixed_items   Number of unfixed items in list x.
+ * @return                  An array with the indices of items in the residual instance.
+ */
 static size_t* residual_instance(
         const TBKPInstance *const instance,
         const TBKPBBFixedStatus *const x,
@@ -224,7 +258,7 @@ static size_t* residual_instance(
 
 	size_t cnt = 0;
 	for(size_t j = 0; j < instance->n_items; j++) {
-		if(x[j] < 0) {
+		if(x[j] == UNFIXED) {
 			items[cnt++] = j;
 		}
 	}
@@ -232,12 +266,115 @@ static size_t* residual_instance(
 	return items;
 }
 
+/**
+ * Structure to contain info from the Deterministic Equivalent bounds,
+ * which are useful in the B&B nodes. It contains the UB and LB at the
+ * local(current) node, plus a flag indicating if the current node should
+ * be prunned - i.e., because the local UB is worse than the best-known
+ * LB.
+ */
 typedef struct {
 	float local_ub;
 	float local_lb;
 	_Bool should_prune;
 } DEBounds;
 
+/**
+ * Updates the current best solution from the LB-solution gotten from the
+ * Deterministic Equivalent solution.
+ *
+ * @param instance              TBKP instance.
+ * @param solution              Current solution (to update).
+ * @param desol                 Deterministic Equivalent solution.
+ * @param x                     List of items statuses.
+ * @param local_lb              Local LB, i.e., obj value of the DE solution.
+ * @param prod_probabilities    Product-of-probabilites component of the obj function.
+ * @param sum_profits           Sum-of-profits component of the obj function.
+ */
+static void update_best_solution_from_de(
+        const TBKPInstance *const instance,
+        TBKPSolution* solution,
+        const TBKPDeterministicEqSol *const desol,
+        const TBKPBBFixedStatus *const x,
+        float local_lb,
+        float prod_probabilities,
+        uint_fast32_t  sum_profits
+) {
+    solution->value = local_lb;
+    solution->prod_probabilities = desol->lb_product_probabilities * prod_probabilities;
+    solution->sum_profits = desol->lb_sum_profits + sum_profits;
+
+    for(size_t i = 0u; i < instance->n_items; ++i) {
+        if(x[i] != UNFIXED) {
+            solution->x[i] = x[i];
+        }
+    }
+
+    for(size_t i = 0u; i < desol->n_items; ++i) {
+        solution->x[desol->items[i]] = true;
+    }
+
+    if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+        printf("Solution update: new value %f\n", solution->value);
+    }
+}
+
+/**
+ * Updates the current best solution from the LB-solution gotten from the
+ * Boole bound solution.
+ *
+ * @param instance              TBKP instance.
+ * @param solution              Current solution (to update).
+ * @param desol                 Boole bound solution.
+ * @param x                     List of items statuses.
+ * @param local_lb              Local LB, i.e., obj value of the Boole solution.
+ * @param prod_probabilities    Product-of-probabilites component of the obj function.
+ * @param sum_profits           Sum-of-profits component of the obj function.
+ */
+static void update_best_solution_from_boole(
+        const TBKPInstance *const instance,
+        TBKPSolution* solution,
+        const TBKPBooleSol *const boolesol,
+        const TBKPBBFixedStatus *const x,
+        float local_lb,
+        float prod_probabilities,
+        uint_fast32_t  sum_profits
+) {
+    solution->value = local_lb;
+    solution->prod_probabilities = boolesol->lb_product_probabilities * prod_probabilities;
+    solution->sum_profits = boolesol->lb_sum_profits + sum_profits;
+
+    for(size_t i = 0u; i < instance->n_items; ++i) {
+        if(x[i] != UNFIXED) {
+            solution->x[i] = x[i];
+        }
+    }
+
+    for(size_t i = 0u; i < boolesol->n_items; ++i) {
+        solution->x[boolesol->items[i]] = true;
+    }
+
+    if(BB_VERBOSITY_CURRENT > BB_VERBOSITY_INFO) {
+        printf("Solution update: new value %f\n", solution->value);
+    }
+}
+
+/**
+ * Gets the Deterministic Equivalent bounds (UB and LB) at the current node.
+ * If the UB is worse than the current best LB, it signal to prune the current node.
+ * It the LB is better than the current best LB, it updates it.
+ *
+ * @param instance              TBKP instance.
+ * @param stats                 Solution stats.
+ * @param solution              Current solution.
+ * @param x                     List with item statuses.
+ * @param items                 List with the indices of items in the current residual instance.
+ * @param n_unfixed_items       Number of unfixed items in the current residual instance.
+ * @param prod_probabilities    Product-of-probabilities component of the objective function.
+ * @param sum_profits           Sum-of-profits component of the objective function.
+ * @param res_capacity          Residual knapsack capacity at the current node.
+ * @return                      The DEBounds object containing the DE bounds and the pruning flag.
+ */
 static DEBounds get_de_bounds(
         const TBKPInstance *const instance,
         TBKPStats* stats,
@@ -270,7 +407,6 @@ static DEBounds get_de_bounds(
 		return (DEBounds){.local_ub = local_ub, .local_lb = 0.0f, .should_prune = true};
 	}
 
-	// Possibly update the incumbent
 	float local_lb = (float) (desol.lb_sum_profits + sum_profits) *
                      (desol.lb_product_probabilities * prod_probabilities);
 
@@ -285,24 +421,9 @@ static DEBounds get_de_bounds(
 	    stats->lb = local_lb;
 	}
 
+    // Possibly update the incumbent
 	if(local_lb > solution->value ) {
-		solution->value = local_lb;
-		solution->prod_probabilities = desol.lb_product_probabilities * prod_probabilities;
-		solution->sum_profits = desol.lb_sum_profits + sum_profits;
-
-		for(size_t i = 0u; i < instance->n_items; ++i) {
-			if(x[i] != UNFIXED) {
-			    solution->x[i] = x[i];
-			}
-		}
-
-		for(size_t i = 0u; i < desol.n_items; ++i) {
-			solution->x[desol.items[i]] = true;
-		}
-
-		if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-            printf("Solution update: new value %f\n", solution->value);
-        }
+        update_best_solution_from_de(instance, solution, &desol, x, local_lb, prod_probabilities, sum_profits);
 	}
 
 	tbkp_desol_free_inside(&desol);
@@ -310,6 +431,21 @@ static DEBounds get_de_bounds(
 	return (DEBounds){.local_ub = local_ub, .local_lb = local_lb, .should_prune = false};
 }
 
+/**
+ * Gets the Boole bound (LB) at the current node.
+ * It the LB is better than the current best LB, it updates it.
+ *
+ * @param instance              TBKP instance.
+ * @param stats                 Solution stats.
+ * @param solution              Current solution.
+ * @param x                     List with item statuses.
+ * @param items                 List with the indices of items in the current residual instance.
+ * @param n_unfixed_items       Number of unfixed items in the current residual instance.
+ * @param prod_probabilities    Product-of-probabilities component of the objective function.
+ * @param sum_profits           Sum-of-profits component of the objective function.
+ * @param res_capacity          Residual knapsack capacity at the current node.
+ * @return                      The DEBounds object containing the DE bounds and the pruning flag.
+ */
 float get_boole_bound(
         const TBKPInstance *const instance,
         TBKPStats* stats,
@@ -327,7 +463,6 @@ float get_boole_bound(
         tbkp_boolesol_print(&boolesol);
     }
 
-    // Possibly update the incumbent
     float local_lb = (float) (boolesol.lb_sum_profits + sum_profits) *
                      (boolesol.lb_product_probabilities * prod_probabilities);
 
@@ -335,24 +470,9 @@ float get_boole_bound(
         stats->lb = local_lb;
     }
 
+    // Possibly update the incumbent
     if(local_lb > solution->value) {
-        solution->value = local_lb;
-        solution->prod_probabilities = boolesol.lb_product_probabilities * prod_probabilities;
-        solution->sum_profits = boolesol.lb_sum_profits + sum_profits;
-
-        for(size_t i = 0u; i < instance->n_items; ++i) {
-            if(x[i] != UNFIXED) {
-                solution->x[i] = x[i];
-            }
-        }
-
-        for(size_t i = 0u; i < boolesol.n_items; ++i) {
-            solution->x[boolesol.items[i]] = true;
-        }
-
-        if(BB_VERBOSITY_CURRENT > BB_VERBOSITY_INFO) {
-            printf("Solution update: new value %f\n", solution->value);
-        }
+        update_best_solution_from_boole(instance, solution, &boolesol, x, local_lb, prod_probabilities, sum_profits);
     }
 
     tbkp_boolesol_free_inside(&boolesol);
@@ -360,6 +480,18 @@ float get_boole_bound(
     return local_lb;
 }
 
+/**
+ * Solves the deterministic Knapsack Problem when all TB objects are fixed, at a leaf node.
+ * If the new solution is better than `solution`, it updates it.
+ *
+ * @param instance              TBKP instance.
+ * @param stats                 Solution statistics.
+ * @param solution              Current solution.
+ * @param x                     Array of item statuses.
+ * @param prod_probabilities    Product-of-probabilities component of the obj function.
+ * @param sum_profits           Sum-of-profits component of the obj function.
+ * @param res_capacity          Residual knapsack capacity of the current instance.
+ */
 static void solve_det_kp(
         const TBKPInstance *const instance,
         TBKPStats* stats,
@@ -427,10 +559,13 @@ static void solve_det_kp(
 			            myz, sumprof, zz, solution->value);
 			}
 
+			if(zz > stats->lb) {
+			    stats->lb = zz;
+			}
+
 			// Possibly update the incumbent
-			if(zz > solution->value ) {
+			if(zz > solution->value) {
 				solution->value = zz;
-				stats->lb = zz;
 
 				// Time-bomb objects
 				for(size_t i = 0u; i < instance->n_items; ++i) {
@@ -451,6 +586,21 @@ static void solve_det_kp(
 		}
 }
 
+/**
+ * Branch on the current node and call `tbkp_bb_solve_node` on the two children nodes.
+ *
+ * @param instance              TBKP instance.
+ * @param nnodes                Number of nodes counter.
+ * @param x                     Array with item statuses.
+ * @param local_ub              UB at the current node.
+ * @param prod_probabilities    Product-of-probabilities component of the obj function.
+ * @param sum_profits           Sum-of-profits component of the obj function.
+ * @param res_capacity          Residual knapsack capacity at the current node.
+ * @param solution              Current solution.
+ * @param stats                 Solution stats.
+ * @param current_node          Node number of the current node.
+ * @param jbra                  Index of the item to branch on.
+ */
 static void branch(
         const TBKPInstance *const instance,
         size_t* nnodes,
@@ -515,6 +665,9 @@ static void branch(
 	// Unfix the item.
 	x[jbra] = UNFIXED;
 }
+/************************************************************
+ * END OF LOCAL HELPER FUNCTIONS                            *
+ ************************************************************/
 
 void tbkp_bb_solve_node(
         const TBKPInstance *const instance,
