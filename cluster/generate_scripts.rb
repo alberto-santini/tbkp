@@ -11,7 +11,6 @@ S = <<~EOF
     #SBATCH --ntasks-per-node=1
     #SBATCH --cpus-per-task=1
     #SBATCH --mem-per-cpu=4GB
-    #SBATCH -o /dev/null
 EOF
 
 def create_script(instance, use_de, use_boole)
@@ -26,7 +25,8 @@ def create_script(instance, use_de, use_boole)
 
     script_f = File.join('scripts', "launch-#{b}.sh")
     error_f = File.join('/homes/users/asantini/local/src/tbkp/cluster/scripts', "err-#{b}.txt")
-    output_f = File.join('/homes/users/asantini/local/src/tbkp/cluster/output', "res-#{b}.txt")
+    output_f = File.join('/homes/users/asantini/local/src/tbkp/cluster/scripts', "out-#{b}.txt")
+    results_f = File.join('/homes/users/asantini/local/src/tbkp/cluster/output', "res-#{b}.txt")
     
     params = ""
     params += " -d" if use_de
@@ -34,9 +34,10 @@ def create_script(instance, use_de, use_boole)
 
     script = <<~EOF
         #{S.strip}
+        #SBATCH -o #{output_f}
         #SBATCH -e #{error_f}
 
-        LD_LIBRARY_PATH=#{L} GRB_LICENSE_FILE=#{G} #{E} -i #{instance} -o #{output_f} -t 3600#{params}
+        LD_LIBRARY_PATH=#{L} GRB_LICENSE_FILE=#{G} #{E} -i #{instance} -o #{results_f} -t 3600#{params}
     EOF
 
     File.write(script_f, script)
