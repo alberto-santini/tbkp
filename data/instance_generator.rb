@@ -29,6 +29,51 @@ def generate_uv(n, k, c, b)
     return weights, profits, probabilities
 end
 
+def generate_vu(n, b)
+    f = Dir.glob(File.join('from-pisinger-hard', "knapPI_*_#{n}_*.csv")).to_a.sample
+    i = rand(1..100)
+    nn, capacity, weights, profits = get_pis_instance(f, i)
+
+    raise "Wrong n from Pisinger instance (exp #{n}, got #{nn})!" if n != nn
+
+    pprod = 0.5 * profits.min
+    probabilities = Array.new(n) do |i|
+        (rand() < b) ? pprod / profits[i] : 1
+    end.map{|pi| pi.round(6)}
+
+    return weights, profits, probabilities, capacity
+end
+
+def get_pis_instance(f, i)
+    ln = 0
+    inst_n = 0
+
+    n = 0
+    c = 0
+    weights = Array.new
+    profits = Array.new
+
+    File.readlines(f).each do |line|
+        inst_n += 1 if (line.size > 5) && (line[0..5] == 'knapPI')
+        
+        if inst_n == i
+            if ln == 1
+                n = line.split[1].to_i
+            elsif ln == 2
+                c = line.split[1].to_i
+            elsif (5..(5+n-1)).include?(ln)
+                _, p, w, _ = line.split(',').map(&:to_i)
+                weights << w
+                profits << p
+            elsif ln == 5+n
+                return n, c, weights, profits
+            end
+
+            ln += 1
+        end
+    end
+end
+
 def print_instance(filename, n, c, w, p, pi)
     str = "#{n} #{c}\n"
     0.upto(n-1) do |i|
@@ -77,4 +122,20 @@ def generate_all_uv
     end
 end
 
-generate_all_uv
+def generate_all_vu
+    [100, 500, 1000, 5000].each do |n|
+        bs = [0.05, 0.1, 0.2, 0.5]
+        bs << 0.01 if n >= 1000
+
+        bs.each do |b|
+            1.upto(25) do |inst_n|
+                w, p, pi, c = generate_vu(n, b)
+                filename = "vu-#{n}-0-#{b}-#{inst_n}.txt"
+                filename = File.join('generated-instances', filename)
+                print_instance(filename, n, c, w, p, pi)
+            end
+        end
+    end
+end
+
+generate_all_vu
