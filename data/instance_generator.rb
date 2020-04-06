@@ -44,6 +44,21 @@ def generate_vu(n, b)
     return weights, profits, probabilities, capacity
 end
 
+def generate_vv(n, b)
+    f = Dir.glob(File.join('from-pisinger-hard', "knapPI_*_#{n}_*.csv")).to_a.sample
+    i = rand(1..100)
+    nn, capacity, weights, profits = get_pis_instance(f, i)
+
+    raise "Wrong n from Pisinger instance (exp #{n}, got #{nn})!" if n != nn
+
+    r = SimpleRandom.new
+    probabilities = Array.new(n) do
+        (rand() < b) ? (1.0 - r.beta(2, 10)) : 1
+    end.map{|pi| pi.round(6)}
+
+    return weights, profits, probabilities, capacity
+end
+
 def get_pis_instance(f, i)
     ln = 0
     inst_n = 0
@@ -138,4 +153,20 @@ def generate_all_vu
     end
 end
 
-generate_all_vu
+def generate_all_vv
+    [100, 500, 1000, 5000].each do |n|
+        bs = [0.05, 0.1, 0.2, 0.5]
+        bs << 0.01 if n >= 1000
+
+        bs.each do |b|
+            1.upto(25) do |inst_n|
+                w, p, pi, c = generate_vv(n, b)
+                filename = "vv-#{n}-0-#{b}-#{inst_n}.txt"
+                filename = File.join('generated-instances', filename)
+                print_instance(filename, n, c, w, p, pi)
+            end
+        end
+    end
+end
+
+generate_all_vv
