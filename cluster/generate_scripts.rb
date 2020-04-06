@@ -11,14 +11,6 @@ S = <<~EOF
     #SBATCH --ntasks-per-node=1
     #SBATCH --cpus-per-task=1
     #SBATCH --mem-per-cpu=4GB
-
-    if [[ -f "/homes/users/asantini/gurobi/licenses/$HOSTNAME/gurobi.lic" ]]
-    then
-        echo "Using existing Gurobi license"
-    else
-        /homes/users/asantini/local/static/gurobi901/linux64/bin/grbgetkey --path=/homes/users/asantini/gurobi/licenses/$HOSTNAME --quiet $(cat /homes/users/asantini/gurobi/secret.key)
-        echo "Downloaded Gurobi license for this host"
-    fi
 EOF
 
 def create_script(instance, use_de, use_boole)
@@ -45,6 +37,14 @@ def create_script(instance, use_de, use_boole)
         #SBATCH -o #{output_f}
         #SBATCH -e #{error_f}
 
+        if [[ -f "/homes/users/asantini/gurobi/licenses/$HOSTNAME/gurobi.lic" ]]
+        then
+            echo "Using existing Gurobi license"
+        else
+            /homes/users/asantini/local/static/gurobi901/linux64/bin/grbgetkey --path=/homes/users/asantini/gurobi/licenses/$HOSTNAME --quiet $(cat /homes/users/asantini/gurobi/secret.key)
+            echo "Downloaded Gurobi license for this host"
+        fi
+        
         LD_LIBRARY_PATH=#{L} GRB_LICENSE_FILE=#{G} #{E} -i #{instance} -o #{results_f} -t 3600#{params}
     EOF
 
