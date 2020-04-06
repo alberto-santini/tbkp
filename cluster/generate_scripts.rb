@@ -18,7 +18,7 @@ S = <<~EOF
     else
         /homes/users/asantini/local/static/gurobi901/linux64/bin/grbgetkey --path=/homes/users/asantini/gurobi/licenses/$HOSTNAME --quiet $(cat /homes/users/asantini/gurobi/secret.key)
         echo "Downloaded Gurobi license for this host"
-    end
+    fi
 EOF
 
 def create_script(instance, use_de, use_boole)
