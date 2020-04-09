@@ -1,7 +1,7 @@
 require 'fileutils'
 
 L = "/homes/users/asantini/local/lib:/homes/users/asantini/local/lib64"
-G = "/homes/users/asantini/gurobi/licenses/$HOSTNAME/gurobi.lic"
+G = "/homes/users/asantini/.gurobi/$HOSTNAME/gurobi.lic"
 E = "/homes/users/asantini/local/src/tbkp/build/tbkp"
 S = <<~EOF
     #!/bin/bash
@@ -37,14 +37,7 @@ def create_script(instance, use_de, use_boole)
         #SBATCH -o #{output_f}
         #SBATCH -e #{error_f}
 
-        if [[ -f "/homes/users/asantini/gurobi/licenses/$HOSTNAME/gurobi.lic" ]]
-        then
-            echo "Using existing Gurobi license"
-        else
-            /homes/users/asantini/local/static/gurobi901/linux64/bin/grbgetkey --path=/homes/users/asantini/gurobi/licenses/$HOSTNAME --quiet $(cat /homes/users/asantini/gurobi/secret.key)
-            echo "Downloaded Gurobi license for this host"
-        fi
-        
+        module load Gurobi/9.0.0-lic
         LD_LIBRARY_PATH=#{L} GRB_LICENSE_FILE=#{G} #{E} -i #{instance} -o #{results_f} -t 3600#{params}
     EOF
 
