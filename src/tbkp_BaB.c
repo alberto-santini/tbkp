@@ -134,7 +134,7 @@ TBKPSolution* tbkp_branch_and_bound(const TBKPInstance *const instance, TBKPStat
 		printf("\n");
 	}
 
-	tbkp_bb_solve_node(instance, &nnodes, x, 0.0f, prod_probabilities, sum_profits, residual_capacity, solution, stats);
+	tbkp_bb_solve_node(instance, &nnodes, x, FLT_MAX, prod_probabilities, sum_profits, residual_capacity, solution, stats);
 
 	free(x); x = NULL;
 
