@@ -134,7 +134,8 @@ TBKPSolution* tbkp_branch_and_bound(const TBKPInstance *const instance, TBKPStat
 		printf("\n");
 	}
 
-	tbkp_bb_solve_node(instance, &nnodes, x, FLT_MAX, prod_probabilities, sum_profits, residual_capacity, solution, stats);
+	tbkp_bb_solve_node(instance, &nnodes, x, INITIAL_UB_PLACEHOLDER, prod_probabilities, sum_profits,
+	        residual_capacity, solution, stats);
 
 	free(x); x = NULL;
 
@@ -723,7 +724,7 @@ void tbkp_bb_solve_node(
 			return;
 		}
 
-		if(de_bounds.local_ub < local_ub) { local_ub = de_bounds.local_ub; }
+		if(local_ub == INITIAL_UB_PLACEHOLDER || de_bounds.local_ub < local_ub) { local_ub = de_bounds.local_ub; }
 		if(de_bounds.local_lb > local_lb) { local_lb = de_bounds.local_lb; }
 	}
 
