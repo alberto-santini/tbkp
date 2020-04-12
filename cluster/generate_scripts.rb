@@ -1,5 +1,7 @@
 require 'fileutils'
 
+MEM = (ARGV[0] == 'mem' ? '8GB' : '4GB')
+
 L = "/homes/users/asantini/local/lib:/homes/users/asantini/local/lib64"
 G = "/homes/users/asantini/.gurobi/$HOSTNAME/gurobi.lic"
 E = "/homes/users/asantini/local/src/tbkp/build/tbkp"
@@ -10,7 +12,7 @@ S = <<~EOF
     #SBATCH --nodes=1
     #SBATCH --ntasks-per-node=1
     #SBATCH --cpus-per-task=1
-    #SBATCH --mem-per-cpu=4GB
+    #SBATCH --mem-per-cpu=#{MEM}
 EOF
 
 def create_script(instance, use_de, use_boole)
