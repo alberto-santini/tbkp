@@ -8,6 +8,8 @@
 #include <gurobi_c.h>
 #include <assert.h>
 
+#define EPS 0.01
+
 TBKPBooleSol tbkp_boolesol_lin_gurobi_get(
         const TBKPInstance* instance,
         size_t n_items,
@@ -194,7 +196,7 @@ TBKPBooleSol tbkp_boolesol_lin_gurobi_get(
     TBKPBooleSol sol = { .n_items = grb_n_items, .items = grb_packed_items };
     tbkp_boolesol_compute_exact_obj(instance, &sol);
 
-    if(sol.lb < obj) {
+    if(sol.lb < obj - EPS) {
         printf("Error: recomputed objective lower than Boole objective (%f vs %f)\n", sol.lb, obj);
         exit(EXIT_FAILURE);
     }
@@ -378,7 +380,7 @@ TBKPBooleSol tbkp_boolesol_quad_gurobi_get(
     TBKPBooleSol sol = { .n_items = grb_n_items, .items = grb_packed_items };
     tbkp_boolesol_compute_exact_obj(instance, &sol);
 
-    if(sol.lb < obj) {
+    if(sol.lb < obj - EPS) {
         printf("Error: recomputed objective lower than Boole objective (%f vs %f)\n", sol.lb, obj);
         exit(EXIT_FAILURE);
     }
