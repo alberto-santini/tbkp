@@ -33,6 +33,7 @@ def create_script(instance, use_de, use_boole)
     params = ""
     params += " -d" if use_de
     params += " -b" if use_boole
+    params += " -f 100" if use_boole
 
     script = <<~EOF
         #{S.strip}
