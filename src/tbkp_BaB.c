@@ -64,7 +64,7 @@ void tbkp_sol_free(TBKPSolution** solution_ptr) {
 	free(*solution_ptr); *solution_ptr = NULL;
 }
 
-TBKPStats tbkp_stats_init(float timeout, _Bool use_de_bounds, _Bool use_boole_bound) {
+TBKPStats tbkp_stats_init(float timeout, _Bool use_de_bounds, _Bool use_boole_bound, size_t boole_bound_frequency) {
     return (TBKPStats) {
         .start_time = clock(),
         .end_time = 0,
@@ -74,6 +74,7 @@ TBKPStats tbkp_stats_init(float timeout, _Bool use_de_bounds, _Bool use_boole_bo
         .ub = INITIAL_UB_PLACEHOLDER,
         .gap = FLT_MAX,
         .n_nodes = 0u,
+        .boole_bound_frequency = boole_bound_frequency,
         .use_de_bounds = use_de_bounds,
         .use_boole_bound = use_boole_bound
     };
@@ -716,7 +717,6 @@ void tbkp_bb_solve_node(
 		DEBounds de_bounds = get_de_bounds(
 		        instance, stats, solution, x, items, n_unfixed_items, prod_probabilities, sum_profits, res_capacity);
 		if(de_bounds.should_prune) {
-			// get_de_bounds() returns false if the node can be pruned.
 			if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
 				printf("Node killed!\n");
 			}
@@ -728,7 +728,7 @@ void tbkp_bb_solve_node(
 		if(de_bounds.local_lb > local_lb) { local_lb = de_bounds.local_lb; }
 	}
 
-	if(stats->use_boole_bound) {
+	if(stats->use_boole_bound && current_node % stats->boole_bound_frequency == 0u) {
 		float boole_lb = get_boole_bound(
 		        instance, stats, solution, x, items, n_unfixed_items, prod_probabilities, sum_profits, res_capacity);
 

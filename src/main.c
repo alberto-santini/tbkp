@@ -14,6 +14,7 @@ typedef struct Params {
     char* instance_file;
     char* output_file;
     float timeout_s;
+    size_t boole_bound_freq;
     _Bool de_bounds;
     _Bool boole_bound;
 } Params;
@@ -23,6 +24,7 @@ Params parse_arguments(int argc, const char** argv) {
             .instance_file = NULL,
             .output_file = NULL,
             .timeout_s = 3600.0f,
+            .boole_bound_freq = 1u,
             .de_bounds = false,
             .boole_bound = false
     };
@@ -39,6 +41,7 @@ Params parse_arguments(int argc, const char** argv) {
         OPT_FLOAT('t', "timeout", &p.timeout_s, "timeout in seconds"),
         OPT_BOOLEAN('d', "debounds", &p.de_bounds, "use the DE bounds"),
         OPT_BOOLEAN('b', "boolebound", &p.boole_bound, "use the Boole bound"),
+        OPT_INTEGER('f', "boolefreq", &p.boole_bound_freq, "freequency at which to use the Boole bound"),
         OPT_END()
     };
 
@@ -72,7 +75,7 @@ int main(int argc, const char** argv) {
         exit(EXIT_FAILURE);
     }
 
-    TBKPStats stats = tbkp_stats_init(p.timeout_s, p.de_bounds, p.boole_bound);
+    TBKPStats stats = tbkp_stats_init(p.timeout_s, p.de_bounds, p.boole_bound, p.boole_bound_freq);
     TBKPSolution* bbsol = tbkp_branch_and_bound(instance, &stats);
     tbkp_stats_to_file(&stats, p.output_file);
 
