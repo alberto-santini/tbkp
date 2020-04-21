@@ -16,8 +16,8 @@ add_executable(tbkp
         src/tbkp_de_sol.c
         src/tbkp_boole_sol.h
         src/tbkp_boole_sol.c
-        src/tbkp_BaB.c
-        src/tbkp_BaB.h)
+        src/tbkp_bb.c
+        src/tbkp_bb.h src/tbkp_bb_stats.h src/tbkp_bb_stats.c src/tbkp_solution.h src/tbkp_solution.c src/tbkp_bb_fixed_status.h src/tbkp_bb_defs.h)
 
 set(WARNING_OPTIONS             -Wall -Wextra -Werror)
 set(GCC_WARNING_OPTIONS         -Wcast-align -Wconversion -Wmisleading-indentation

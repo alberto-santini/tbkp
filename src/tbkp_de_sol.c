@@ -9,11 +9,14 @@
 #include <stdbool.h>
 #include <combo.h>
 #include <stdio.h>
+#include <time.h>
 
 TBKPDeterministicEqSol tbkp_desol_get(
         const TBKPInstance *const instance, size_t n_items,
         const size_t *const items, uint_fast32_t capacity)
 {
+    clock_t start_time = clock();
+
     // Multiplier we need because COMBO only takes integer profits!
     const float cmb_multiplier = 10000.0f;
 
@@ -87,13 +90,17 @@ TBKPDeterministicEqSol tbkp_desol_get(
 
     free(cmb_items); cmb_items = NULL;
 
+    clock_t end_time = clock();
+    float elapsed_time = (float)(end_time - start_time) / CLOCKS_PER_SEC;
+
     return (TBKPDeterministicEqSol) {
         .ub = ub,
         .lb = (float) lb_sum * lb_prod,
         .lb_sum_profits = lb_sum,
         .lb_product_probabilities = lb_prod,
         .n_items = n_ub_items,
-        .items = ub_items
+        .items = ub_items,
+        .time_to_compute = elapsed_time
     };
 }
 

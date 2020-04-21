@@ -1,7 +1,7 @@
 #include "tbkp_instance.h"
 #include "tbkp_de_sol.h"
 #include "tbkp_boole_sol.h"
-#include "tbkp_BaB.h"
+#include "tbkp_bb.h"
 #include <argparse.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -17,6 +17,7 @@ typedef struct Params {
     size_t boole_bound_freq;
     _Bool de_bounds;
     _Bool boole_bound;
+    _Bool early_combo;
 } Params;
 
 Params parse_arguments(int argc, const char** argv) {
@@ -26,7 +27,8 @@ Params parse_arguments(int argc, const char** argv) {
             .timeout_s = 3600.0f,
             .boole_bound_freq = 1u,
             .de_bounds = false,
-            .boole_bound = false
+            .boole_bound = false,
+            .early_combo = false
     };
 
     static const char *const usage[] = {
@@ -39,6 +41,7 @@ Params parse_arguments(int argc, const char** argv) {
         OPT_STRING('i', "instance", &p.instance_file, "path of the instance"),
         OPT_STRING('o', "output", &p.output_file, "path to the csv output file"),
         OPT_FLOAT('t', "timeout", &p.timeout_s, "timeout in seconds"),
+        OPT_BOOLEAN('c', "earlycombo", &p.early_combo, "call COMBO before reaching leaf nodes"),
         OPT_BOOLEAN('d', "debounds", &p.de_bounds, "use the DE bounds"),
         OPT_BOOLEAN('b', "boolebound", &p.boole_bound, "use the Boole bound"),
         OPT_INTEGER('f', "boolefreq", &p.boole_bound_freq, "freequency at which to use the Boole bound"),
@@ -75,7 +78,7 @@ int main(int argc, const char** argv) {
         exit(EXIT_FAILURE);
     }
 
-    TBKPStats stats = tbkp_stats_init(p.timeout_s, p.de_bounds, p.boole_bound, p.boole_bound_freq);
+    TBKPBBStats stats = tbkp_stats_init(p.timeout_s, p.early_combo, p.de_bounds, p.boole_bound, p.boole_bound_freq);
     TBKPSolution* bbsol = tbkp_branch_and_bound(instance, &stats);
     tbkp_stats_to_file(&stats, p.output_file);
 

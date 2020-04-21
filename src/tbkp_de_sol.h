@@ -35,6 +35,9 @@ typedef struct {
      *  They can also be used to get a feasible solution to the TBKP.
      */
     size_t* items;
+
+    /** Time in seconds to compute the solution. */
+    float time_to_compute;
 } TBKPDeterministicEqSol;
 
 /** Gets the "deterministic equivalent" upper bound, solving a 0-1 Knapsack with COMBO.

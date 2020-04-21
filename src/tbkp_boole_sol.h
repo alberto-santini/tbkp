@@ -38,6 +38,9 @@ typedef struct {
 
     /** Items packed in the solution of the Boole BQ problem. */
     size_t* items;
+
+    /** Time in seconds to compute the solution. */
+    float time_to_compute;
 } TBKPBooleSol;
 
 /** Gets the lower bound from solving the Boole BQ problem as-is, i.e., as

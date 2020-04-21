@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <gurobi_c.h>
 #include <assert.h>
+#include <time.h>
 
 #define EPS 0.01
 
@@ -16,6 +17,8 @@ TBKPBooleSol tbkp_boolesol_lin_gurobi_get(
         const size_t* items,
         uint_fast32_t capacity)
 {
+    clock_t start_time = clock();
+
     GRBmodel* grb_model = NULL;
     int error = GRBnewmodel(grb_env, &grb_model, "booleip", 0, NULL, NULL, NULL, NULL, NULL);
     int n = (int)n_items;
@@ -201,6 +204,9 @@ TBKPBooleSol tbkp_boolesol_lin_gurobi_get(
         exit(EXIT_FAILURE);
     }
 
+    clock_t end_time = clock();
+    sol.time_to_compute = (float)(end_time - start_time) / CLOCKS_PER_SEC;
+
     return sol;
 }
 
@@ -210,6 +216,8 @@ TBKPBooleSol tbkp_boolesol_quad_gurobi_get(
         const size_t* items,
         uint_fast32_t capacity)
 {
+    clock_t start_time = clock();
+
     GRBmodel* grb_model = NULL;
     int error = GRBnewmodel(grb_env, &grb_model, "booleqp", 0, NULL, NULL, NULL, NULL, NULL);
     int n = (int)n_items;
@@ -384,6 +392,9 @@ TBKPBooleSol tbkp_boolesol_quad_gurobi_get(
         printf("Error: recomputed objective lower than Boole objective (%f vs %f)\n", sol.lb, obj);
         exit(EXIT_FAILURE);
     }
+
+    clock_t end_time = clock();
+    sol.time_to_compute = (float)(end_time - start_time) / CLOCKS_PER_SEC;
 
     return sol;
 }
