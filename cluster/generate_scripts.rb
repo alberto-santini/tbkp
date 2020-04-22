@@ -15,7 +15,7 @@ S = <<~EOF
     #SBATCH --mem-per-cpu=#{MEM}
 EOF
 
-def create_script(instance, use_de, use_boole)
+def create_script(instance, early_combo, use_de, use_boole, boole_freq)
     instance = File.join(
         '/homes/users/asantini/local/src/tbkp/data/generated-instances',
         File.basename(instance)
@@ -23,7 +23,8 @@ def create_script(instance, use_de, use_boole)
 
     b = File.basename(instance, '.txt')
     b += "-d" if use_de
-    b += "-b" if use_boole
+    b += "-b#{boole_freq}" if use_boole
+    b += "-c" if early_combo
 
     script_f = File.join('scripts', "launch-#{b}.sh")
     error_f = File.join('/homes/users/asantini/local/src/tbkp/cluster/scripts', "err-#{b}.txt")
@@ -32,8 +33,8 @@ def create_script(instance, use_de, use_boole)
     
     params = ""
     params += " -d" if use_de
-    params += " -b" if use_boole
-    params += " -f 100" if use_boole
+    params += " -b -f #{boole_freq}" if use_boole
+    params += " -c" if early_combo
 
     script = <<~EOF
         #{S.strip}
@@ -51,7 +52,10 @@ def create_all_scripts
     Dir.glob('../data/generated-instances/*.txt') do |instance|
         [true, false].each do |use_de|
             [true, false].each do |use_boole|
-                create_script(instance, use_de, use_boole)
+                [true, false].each do |early_combo|
+                    create_script(instance, early_combo, use_de, use_boole, 1)
+                    create_script(instance, early_combo, use_de, use_boole, 100) if use_boole
+                end
             end
         end
     end
