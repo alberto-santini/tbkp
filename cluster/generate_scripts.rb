@@ -52,6 +52,7 @@ def create_all_scripts
     Dir.glob('../data/generated-instances/*.txt') do |instance|
         [true, false].each do |use_de|
             [true, false].each do |use_boole|
+                next if use_boole && !use_de # Doesn't make sense
                 [true, false].each do |early_combo|
                     create_script(instance, early_combo, use_de, use_boole, 1)
                     create_script(instance, early_combo, use_de, use_boole, 100) if use_boole
