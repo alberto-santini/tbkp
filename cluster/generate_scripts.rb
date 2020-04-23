@@ -32,9 +32,9 @@ def create_script(instance, early_combo, use_de, use_boole, boole_freq)
     results_f = File.join('/homes/users/asantini/local/src/tbkp/cluster/output', "res-#{b}.txt")
     
     params = ""
-    params += " -d" if use_de
-    params += " -b -f #{boole_freq}" if use_boole
-    params += " -c" if early_combo
+    params += " -d 1" if use_de
+    params += " -b 1 -f #{boole_freq}" if use_boole
+    params += " -c 1" if early_combo
 
     script = <<~EOF
         #{S.strip}
