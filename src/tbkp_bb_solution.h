@@ -2,10 +2,11 @@
 // Created by alberto on 21/04/2020.
 //
 
-#ifndef TBKP_TBKP_SOLUTION_H
-#define TBKP_TBKP_SOLUTION_H
+#ifndef TBKP_TBKP_BB_SOLUTION_H
+#define TBKP_TBKP_BB_SOLUTION_H
 
 #include "tbkp_instance.h"
+#include "tbkp_bb_stats.h"
 #include <stdint.h>
 
 /** Represents a solution to the Time-Bomb Knapsack Problem. */
@@ -21,10 +22,10 @@ typedef struct {
 
     /** Objective value. */
     float value;
-} TBKPSolution;
+} TBKPBBSolution;
 
-TBKPSolution* tbkp_sol_init(const TBKPInstance* instance);
-void tbkp_sol_print(const TBKPSolution *const solution, const TBKPInstance* instance);
-void tbkp_sol_free(TBKPSolution** solution_ptr);
+TBKPBBSolution* tbkp_sol_init(const TBKPInstance* instance);
+void tbkp_sol_print(const TBKPBBSolution* solution, const TBKPInstance* instance);
+void tbkp_sol_free(TBKPBBSolution** solution_ptr);
 
-#endif //TBKP_TBKP_SOLUTION_H
+#endif //TBKP_TBKP_BB_SOLUTION_H

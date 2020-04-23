@@ -1,6 +1,5 @@
 #include "tbkp_instance.h"
-#include "tbkp_de_sol.h"
-#include "tbkp_boole_sol.h"
+#include "tbkp_bb_params.h"
 #include "tbkp_bb.h"
 #include <argparse.h>
 #include <stddef.h>
@@ -10,26 +9,19 @@
 
 GRBenv* grb_env = NULL;
 
-typedef struct Params {
-    char* instance_file;
-    char* output_file;
-    float timeout_s;
-    size_t boole_bound_freq;
-    _Bool de_bounds;
-    _Bool boole_bound;
-    _Bool early_combo;
-} Params;
-
-Params parse_arguments(int argc, const char** argv) {
-    Params p = {
+TBKPBBParams parse_arguments(int argc, const char** argv) {
+    TBKPBBParams p = {
             .instance_file = NULL,
             .output_file = NULL,
-            .timeout_s = 3600.0f,
-            .boole_bound_freq = 1u,
-            .de_bounds = false,
-            .boole_bound = false,
-            .early_combo = false
+            .timeout = 3600.0f,
+            .boole_bound_frequency = 1u,
+            .use_de_bounds = false,
+            .use_boole_bound = false,
+            .use_early_combo = false
     };
+
+    // I think we need this because argparse's OPT_BOOLEAN has a bug.
+    int early_combo = 0, de_bounds = 0, boole_bound = 0;
 
     static const char *const usage[] = {
             "tbkp [options]",
@@ -40,17 +32,21 @@ Params parse_arguments(int argc, const char** argv) {
         OPT_HELP(),
         OPT_STRING('i', "instance", &p.instance_file, "path of the instance"),
         OPT_STRING('o', "output", &p.output_file, "path to the csv output file"),
-        OPT_FLOAT('t', "timeout", &p.timeout_s, "timeout in seconds"),
-        OPT_BOOLEAN('c', "earlycombo", &p.early_combo, "call COMBO before reaching leaf nodes"),
-        OPT_BOOLEAN('d', "debounds", &p.de_bounds, "use the DE bounds"),
-        OPT_BOOLEAN('b', "boolebound", &p.boole_bound, "use the Boole bound"),
-        OPT_INTEGER('f', "boolefreq", &p.boole_bound_freq, "freequency at which to use the Boole bound"),
+        OPT_FLOAT('t', "timeout", &p.timeout, "timeout in seconds"),
+        OPT_INTEGER('c', "earlycombo", &early_combo, "1 if we call COMBO before reaching leaf nodes"),
+        OPT_INTEGER('d', "debounds", &de_bounds, "1 if we use the DE bounds"),
+        OPT_INTEGER('b', "boolebound", &boole_bound, "1 if we use the Boole bound"),
+        OPT_INTEGER('f', "boolefreq", &p.boole_bound_frequency, "freequency at which to use the Boole bound"),
         OPT_END()
     };
 
     struct argparse argparse;
     argparse_init(&argparse, options, usage, 0);
     argc = argparse_parse(&argparse, argc, argv);
+
+    p.use_early_combo = (early_combo == 1);
+    p.use_de_bounds = (de_bounds == 1);
+    p.use_boole_bound = (boole_bound == 1);
 
     if(!p.instance_file) {
         printf("You have to specify an instance file!\n");
@@ -61,10 +57,15 @@ Params parse_arguments(int argc, const char** argv) {
 }
 
 int main(int argc, const char** argv) {
-    Params p = parse_arguments(argc, argv);
-
+    TBKPBBParams p = parse_arguments(argc, argv);
     TBKPInstance* instance = tbkp_instance_read(p.instance_file);
+    TBKPBBStats stats = tbkp_stats_init();
     int error = GRBloadenv(&grb_env, NULL);
+
+    if(!p.use_de_bounds) {
+        printf("ERROR!\n");
+        exit(EXIT_FAILURE);
+    }
 
     if(error) {
         printf("Gurobi loadenv error: %d\n", error);
@@ -78,9 +79,8 @@ int main(int argc, const char** argv) {
         exit(EXIT_FAILURE);
     }
 
-    TBKPBBStats stats = tbkp_stats_init(p.timeout_s, p.early_combo, p.de_bounds, p.boole_bound, p.boole_bound_freq);
-    TBKPSolution* bbsol = tbkp_branch_and_bound(instance, &stats);
-    tbkp_stats_to_file(&stats, p.output_file);
+    TBKPBBSolution* bbsol = tbkp_branch_and_bound(instance, &stats, &p);
+    tbkp_stats_to_file(&stats, &p);
 
     // Clean up
     tbkp_sol_free(&bbsol);

@@ -2,13 +2,13 @@
 // Created by alberto on 21/04/2020.
 //
 
-#include "tbkp_solution.h"
+#include "tbkp_bb_solution.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 
-TBKPSolution* tbkp_sol_init(const TBKPInstance *const instance) {
-    TBKPSolution* solution = malloc(sizeof(*solution));
+TBKPBBSolution* tbkp_sol_init(const TBKPInstance *const instance) {
+    TBKPBBSolution* solution = malloc(sizeof(*solution));
 
     if(!solution) {
         printf("Cannot allocate memory for solution\n");
@@ -33,7 +33,7 @@ TBKPSolution* tbkp_sol_init(const TBKPInstance *const instance) {
     return solution;
 }
 
-void tbkp_sol_print(const TBKPSolution *const solution, const TBKPInstance *const instance) {
+void tbkp_sol_print(const TBKPBBSolution *const solution, const TBKPInstance *const instance) {
     printf("Solution with value %.2f (%" PRIuFAST32 " sum of profits, %.2f prod of probabilities)\n",
             solution->value, solution->sum_profits, solution->prod_probabilities);
     printf("Packed objects:\n");
@@ -46,7 +46,7 @@ void tbkp_sol_print(const TBKPSolution *const solution, const TBKPInstance *cons
     }
 }
 
-void tbkp_sol_free(TBKPSolution** solution_ptr) {
+void tbkp_sol_free(TBKPBBSolution** solution_ptr) {
     free((*solution_ptr)->x); (*solution_ptr)->x = NULL;
     free(*solution_ptr); *solution_ptr = NULL;
 }
