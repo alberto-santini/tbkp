@@ -19,11 +19,10 @@ add_executable(tbkp
         src/tbkp_bb.c
         src/tbkp_bb.h src/tbkp_bb_stats.h src/tbkp_bb_stats.c src/tbkp_bb_solution.h src/tbkp_bb_solution.c src/tbkp_bb_fixed_status.h src/tbkp_bb_defs.h src/tbkp_bb_params.h)
 
-set(WARNING_OPTIONS             -Wall -Wextra -Werror)
+set(WARNING_OPTIONS             -Wall -Wextra -Werror -Wno-missing-field-initializers)
 set(GCC_WARNING_OPTIONS         -Wcast-align -Wconversion -Wmisleading-indentation
                                 -Wduplicated-branches -Wduplicated-cond -Wlogical-op
-                                -Wnull-dereference -Wformat=2 -Wno-missing-field-initializers)
-set(CLANG_WARNING_OPTIONS       -Wno-missing-field-initializers)
+                                -Wnull-dereference -Wformat=2)
 set(ARCH_OPTIONS                -march=native)
 set(RELEASE_OPTIONS             -Ofast)
 set(DEBUG_OPTIONS               -O0 -g)
@@ -50,7 +49,6 @@ target_include_directories( tbkp SYSTEM PRIVATE "src/utils")
 target_include_directories( tbkp SYSTEM PRIVATE ${GUROBI_INCLUDE_DIRS})
 target_compile_options(     tbkp PRIVATE ${WARNING_OPTIONS} ${ARCH_OPTIONS})
 target_compile_options(     tbkp PRIVATE $<$<CXX_COMPILER_ID:GNU>:${GCC_WARNING_OPTIONS}>)
-target_compile_options(     tbkp PRIVATE $<$<CXX_COMPILER_ID:Clang>:${CLANG_WARNING_OPTIONS}>)
 target_compile_options(     tbkp PRIVATE $<$<CONFIG:RELEASE>:${RELEASE_OPTIONS}>)
 target_compile_options(     tbkp PRIVATE $<$<CONFIG:DEBUG>:${DEBUG_OPTIONS}>)
 target_compile_options(     tbkp PRIVATE $<$<AND:$<CONFIG:DEBUG>,$<CXX_COMPILER_ID:GNU>>:${GDB_DEBUG_OPTIONS}>)
