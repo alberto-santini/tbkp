@@ -17,7 +17,8 @@ TBKPBBParams parse_arguments(int argc, const char** argv) {
             .boole_bound_frequency = 1u,
             .use_de_bounds = false,
             .use_boole_bound = false,
-            .use_early_combo = false
+            .use_early_combo = false,
+            .num_nodes = 0
     };
 
     // I think we need this because argparse's OPT_BOOLEAN has a bug.
@@ -37,6 +38,7 @@ TBKPBBParams parse_arguments(int argc, const char** argv) {
         OPT_INTEGER('d', "debounds", &de_bounds, "1 if we use the DE bounds"),
         OPT_INTEGER('b', "boolebound", &boole_bound, "1 if we use the Boole bound"),
         OPT_INTEGER('f', "boolefreq", &p.boole_bound_frequency, "freequency at which to use the Boole bound"),
+        OPT_INTEGER('n', "num_nodes", &p.num_nodes, "number of branch-and-bound nodes to be explored (1 for root node only)"),
         OPT_END()
     };
 
@@ -61,6 +63,12 @@ int main(int argc, const char** argv) {
     TBKPInstance* instance = tbkp_instance_read(p.instance_file);
     TBKPBBStats stats = tbkp_stats_init();
     int error = GRBloadenv(&grb_env, NULL);
+
+
+// solve the continuous relaxation
+float ub = solve_cont(instance);
+printf("continuous upper bound %f\n", ub);
+
 
     if(!p.use_de_bounds) {
         printf("ERROR!\n");

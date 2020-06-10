@@ -20,12 +20,213 @@
 #define BB_VERBOSITY_INFO 1000
 #define EPS 1e-6f
 
+
+/************michele: rilassamento continuo (inizio) ***************/
+#define EPSC 1e-10
+
+/**********************************************************************/
+double bin_search(int n, double *x, double *d, uint_fast32_t *p, double *q)
+/**********************************************************************/
+{
+// next point is z = x + lambda *x   with lambda \in [0,1]
+        double bestobj = 0.0;
+        double bestl = -1.0;
+
+        double ptot = 0.0;
+        double product = 1.0;
+
+        // iterative loop
+        double l0 = 0.0;
+        double l1 = 1.0;
+        while ( l1 - l0 > EPSC )
+        {
+                // define two lambda values in the current interval
+                double lgap = l1 - l0;
+                double delta = lgap / 3;
+                double beta = l0 + delta;
+                double gamma = l0 + 2 * delta;
+
+                // evaluate the first point
+                ptot = 0.0;
+                product = 1.0;
+                for ( int j = 0; j < n; j++ )
+                {
+                        double zj = x[j] + beta * d[j];
+                        ptot += p[j] * zj;
+                        double alpha = 1.0 - q[j] * zj;
+                        product = product * alpha;
+                }
+                double objbeta = ptot * product;
+                if ( objbeta > bestobj )
+                {
+                        bestobj = objbeta;
+                        bestl = beta;
+                }
+
+                // evaluate the second point
+                ptot = 0.0;
+                product = 1.0;
+                for ( int j = 0; j < n; j++ )
+                {
+                        double zj = x[j] + gamma * d[j];
+                        ptot += p[j] * zj;
+                        double alpha = 1.0 - q[j] * zj;
+                        product = product * alpha;
+                }
+                double objgamma = ptot * product;
+                if ( objgamma > bestobj )
+                {
+                        bestobj = objgamma;
+                        bestl = gamma;
+                }
+
+                if ( objbeta < objgamma )
+                {
+                        // remove interval [l0, beta]
+                        l0 = beta;
+                }
+                else
+                {
+                        // remove interval [gamma, l1]
+                        l1 = gamma;
+                }
+        }
+
+	return bestl;
+}
+
+
+/**********************************************************************/
+void solve_Dantzig(int n, double *p, uint_fast32_t *w, int c, double *y)
+/**********************************************************************/
+{
+        uint_fast32_t cres = c;
+        int *flag = (int *) calloc(n, sizeof(int));
+        for ( int j = 0; j < n; j++ )
+        {
+                y[j] = 0;
+                flag[j] = 0;
+        }
+        for ( int cont = 0; cont < n; cont++ )
+        {
+                if ( cres <= 0 ) break;
+
+                double maxratio = 0.0;
+                int index = -1;
+                for ( int j = 0; j < n; j++ )
+                {
+                        if ( flag[j] == 0 )
+                        {
+                                double ratio = p[j]/w[j];
+                                if ( ratio > maxratio )
+                                {
+                                        maxratio = ratio;
+                                        index = j;
+                                }
+                        }
+                }
+
+                if ( index < 0 ) break;
+                flag[index] = 1;
+                if ( cres > w[index] )
+                {
+                        y[index] = 1.0;
+                        cres -= w[index];
+                }
+                else
+                {
+                        y[index] = 1.0 * cres / w[index];
+                        cres = 0;
+                }
+        }
+        free(flag);
+
+}
+
+
+
+/**********************************************************************/
+float solve_cont(TBKPInstance* instance)
+/**********************************************************************/
+{
+	
+	int n = instance->n_items;
+	double *x = (double *) calloc(n, sizeof(double)); // x variables
+	double *a = (double *) calloc(n, sizeof(double)); // \alpha variables
+	double *q = (double *) calloc(n, sizeof(double)); // q probabilities
+	for ( int j = 0; j < n; j++ ) 
+	{
+		x[j] = 0.0;
+		a[j] = 1.0;
+		q[j] = 1.0 - instance->probabilities[j];
+	}
+	double product = 1.0;
+	double ptot = 0.0;
+	double *g = (double *) calloc(n, sizeof(double)); // gradient
+	double *d = (double *) calloc(n, sizeof(double)); // improving direction (if any)
+	double *y = (double *) calloc(n, sizeof(double)); // next solution
+	float objval = 0.0;
+	while ( 1 ) 
+	{
+		float oldobj = objval;
+
+		// compute the gradient
+		product = 1.0;
+                for ( int j = 0; j < n; j++ ) product *= (1.0 - q[j]*x[j]);
+                for ( int j = 0; j < n; j++ )
+                {
+                        double value = instance->profits[j] - ptot*q[j]/(1.0 - q[j]*x[j]);
+                        g[j] = product * value;
+                }
+		
+		// find a candidate direction for improving
+		solve_Dantzig(n, g, instance->weights, instance->capacity, y);
+		for ( int j = 0; j < n; j++ ) d[j] = y[j] - x[j];
+
+		// check if the direction is improving
+		double delta = 0.0;
+		for ( int j = 0; j < n; j++ ) delta += g[j] * d[j];
+		if ( delta < EPSC ) break;
+
+		// determine the optimal value for parameter \lambda
+		double lambda = bin_search(n, x, d, instance->profits, q);
+
+		// determine the next point
+		ptot = 0.0;
+		product = 1.0;
+		for ( int j = 0; j < n; j++ )
+                {
+                        double zj = x[j] +  lambda * d[j];
+                        ptot += instance->profits[j] * zj;
+                        a[j] = 1.0 - q[j] * zj;
+                        product = product * a[j];
+                        x[j] = zj;
+                }
+                objval = ptot * product;
+		
+		// break if no improvement
+		if ( objval - oldobj < EPSC ) break;
+	}
+
+	free(y);
+	free(d);
+	free(g);
+	free(q);
+	free(a);
+	free(x);
+
+	return objval;
+}
+
+/************michele: rilassamento continuo (fine) ***************/
+
+
 /************************************************************
  * LOCAL HELPER FUNCTIONS                                   *
  ************************************************************/
 
 static void tbkp_bb_solve_node(
-        TBKPBBAlgStatus* status, float parent_ub, TBKPBBResidualInstance residual, _Bool early_combo);
+        TBKPBBAlgStatus* status, float parent_ub, TBKPBBResidualInstance residual, _Bool early_combo, size_t max_nodes);
 
 /** Finds the next time-bomb item to branch on. If no such item exists (because we either
  *  ran out of TB items, or there is no item which fits in the residual capacity), returns
@@ -429,8 +630,13 @@ static void branch(
         TBKPBBResidualInstance residual,
         float parent_ub,
         size_t current_node,
-        int jbra
+        int jbra,
+        size_t max_nodes
 ) {
+
+	// return if the node limit has been reached
+    	if ( (*(status->n_nodes)) >= max_nodes ) return;
+
 	// Left node: fix the item in the solution
 	TBKPBBResidualInstance left_residual = {
             .prod_probabilities = residual.prod_probabilities * status->instance->probabilities[jbra],
@@ -451,11 +657,14 @@ static void branch(
 	    printf("\tProduct of probabilities in the child node: %.3f\n", left_residual.prod_probabilities);
 	}
 
-	tbkp_bb_solve_node(status, parent_ub, left_residual, true /* early combo on 1-branch */);
+	tbkp_bb_solve_node(status, parent_ub, left_residual, true /* early combo on 1-branch */, max_nodes);
 
 	if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
 	    printf("[NODE %zu] Returned from left node to father node\n", current_node);
 	}
+
+	// return if the node limit has been reached
+    	if ( (*(status->n_nodes)) >= max_nodes ) return;
 
 	// Right node: remove the item
     // The residual instance stays the same.
@@ -473,7 +682,7 @@ static void branch(
         printf("\tProduct of probabilities in the child node: %.3f\n", residual.prod_probabilities);
 	}
 
-	tbkp_bb_solve_node(status, parent_ub, residual, false /* no early combo on 0-branch */);
+	tbkp_bb_solve_node(status, parent_ub, residual, false /* no early combo on 0-branch */, max_nodes);
 
     if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
         printf("[NODE %zu] Returned from right node to father node\n", current_node);
@@ -494,7 +703,8 @@ static void tbkp_bb_solve_node(
         TBKPBBAlgStatus* status,
         float parent_ub,
         TBKPBBResidualInstance residual,
-        _Bool early_combo)
+        _Bool early_combo,
+        size_t max_nodes)
 {
     if(timeout(status, parent_ub)) {
 		return;
@@ -595,7 +805,7 @@ static void tbkp_bb_solve_node(
         return;
     }
 
-	branch(status, residual, local_ub, current_node, jbra);
+	branch(status, residual, local_ub, current_node, jbra, max_nodes);
 
 	free(items); items = NULL;
 }
@@ -637,7 +847,7 @@ TBKPBBSolution* tbkp_branch_and_bound(const TBKPInstance *const instance, TBKPBB
         printf("Starting solution at the root node.\n");
     }
 
-    tbkp_bb_solve_node(&status, INITIAL_UB_PLACEHOLDER, residual, true /* early combo */);
+    tbkp_bb_solve_node(&status, INITIAL_UB_PLACEHOLDER, residual, true /* early combo */, params->num_nodes);
 
     free(x); x = NULL;
 
