@@ -36,7 +36,7 @@ typedef struct {
  */
 TBKPBBSolution* tbkp_branch_and_bound(const TBKPInstance* instance, TBKPBBStats* stats, TBKPBBParams* params);
 
-float solve_cont(TBKPInstance* instance);
+float solve_cont(const TBKPInstance *const instance, TBKPBBFixedStatus* xbra, double *xc);
 
 
 #endif //TBKP_TBKP_UB_H

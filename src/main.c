@@ -64,12 +64,6 @@ int main(int argc, const char** argv) {
     TBKPBBStats stats = tbkp_stats_init();
     int error = GRBloadenv(&grb_env, NULL);
 
-
-// solve the continuous relaxation
-float ub = solve_cont(instance);
-printf("continuous upper bound %f\n", ub);
-
-
     if(!p.use_de_bounds) {
         printf("ERROR!\n");
         exit(EXIT_FAILURE);

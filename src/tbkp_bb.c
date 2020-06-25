@@ -97,7 +97,7 @@ double bin_search(int n, double *x, double *d, uint_fast32_t *p, double *q)
 
 
 /**********************************************************************/
-void solve_Dantzig(int n, double *p, uint_fast32_t *w, int c, double *y)
+void solve_Dantzig(int n, double *p, uint_fast32_t *w, int c, TBKPBBFixedStatus* xbra, double *y)
 /**********************************************************************/
 {
         uint_fast32_t cres = c;
@@ -106,6 +106,16 @@ void solve_Dantzig(int n, double *p, uint_fast32_t *w, int c, double *y)
         {
                 y[j] = 0;
                 flag[j] = 0;
+		// handle items that have been fixed by branching
+		if ( xbra[j] != -1 ) 
+		{
+			flag[j] = 1;
+			if ( xbra[j] == 1 ) 
+			{
+				y[j] = 1.0;
+				cres -= w[j];
+			}
+		}
         }
         for ( int cont = 0; cont < n; cont++ )
         {
@@ -146,17 +156,15 @@ void solve_Dantzig(int n, double *p, uint_fast32_t *w, int c, double *y)
 
 
 /**********************************************************************/
-float solve_cont(TBKPInstance* instance)
+float solve_cont(const TBKPInstance *const instance, TBKPBBFixedStatus* xbra, double *xc)
 /**********************************************************************/
 {
-	
 	int n = instance->n_items;
-	double *x = (double *) calloc(n, sizeof(double)); // x variables
 	double *a = (double *) calloc(n, sizeof(double)); // \alpha variables
 	double *q = (double *) calloc(n, sizeof(double)); // q probabilities
 	for ( int j = 0; j < n; j++ ) 
 	{
-		x[j] = 0.0;
+		if ( xbra[j] == 1 ) xc[j] = 1.0; else xc[j] = 0.0;
 		a[j] = 1.0;
 		q[j] = 1.0 - instance->probabilities[j];
 	}
@@ -172,16 +180,16 @@ float solve_cont(TBKPInstance* instance)
 
 		// compute the gradient
 		product = 1.0;
-                for ( int j = 0; j < n; j++ ) product *= (1.0 - q[j]*x[j]);
+                for ( int j = 0; j < n; j++ ) product *= (1.0 - q[j]*xc[j]);
                 for ( int j = 0; j < n; j++ )
                 {
-                        double value = instance->profits[j] - ptot*q[j]/(1.0 - q[j]*x[j]);
+                        double value = instance->profits[j] - ptot*q[j]/(1.0 - q[j]*xc[j]);
                         g[j] = product * value;
                 }
 		
 		// find a candidate direction for improving
-		solve_Dantzig(n, g, instance->weights, instance->capacity, y);
-		for ( int j = 0; j < n; j++ ) d[j] = y[j] - x[j];
+		solve_Dantzig(n, g, instance->weights, instance->capacity, xbra, y);
+		for ( int j = 0; j < n; j++ ) d[j] = y[j] - xc[j];
 
 		// check if the direction is improving
 		double delta = 0.0;
@@ -189,18 +197,18 @@ float solve_cont(TBKPInstance* instance)
 		if ( delta < EPSC ) break;
 
 		// determine the optimal value for parameter \lambda
-		double lambda = bin_search(n, x, d, instance->profits, q);
+		double lambda = bin_search(n, xc, d, instance->profits, q);
 
 		// determine the next point
 		ptot = 0.0;
 		product = 1.0;
 		for ( int j = 0; j < n; j++ )
                 {
-                        double zj = x[j] +  lambda * d[j];
+                        double zj = xc[j] +  lambda * d[j];
                         ptot += instance->profits[j] * zj;
                         a[j] = 1.0 - q[j] * zj;
                         product = product * a[j];
-                        x[j] = zj;
+                        xc[j] = zj;
                 }
                 objval = ptot * product;
 		
@@ -213,7 +221,6 @@ float solve_cont(TBKPInstance* instance)
 	free(g);
 	free(q);
 	free(a);
-	free(x);
 
 	return objval;
 }
@@ -333,6 +340,7 @@ typedef struct {
 	float local_ub;
 	float local_lb;
 	_Bool should_prune;
+	float local_ub2;	// ub from continuous relaxation
 } DEBounds;
 
 /**
@@ -439,8 +447,48 @@ static DEBounds get_de_bounds(
 		return (DEBounds){.local_ub = local_ub, .local_lb = 0.0f, .should_prune = true};
 	}
 
+	// compute the continuous relaxation upper bound
+	double *xc = (double *) calloc(status->instance->n_items, sizeof(double));
+	float local_ub2 = solve_cont(status->instance, status->x, xc);
+	if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+	    printf("\tUB from continuous relaxation: %f (vs %f)\n", local_ub2, status->solution->value);
+	}
+	if(local_ub2 <= status->solution->value) {
+		free(items); items = NULL;
+		return (DEBounds){.local_ub2 = local_ub2, .local_lb = 0.0f, .should_prune = true};
+	}
+	// check if the solution of the continuous relaxation is integer
+	int integer_sol = 1;
+	for(size_t i = 0u; i < status->instance->n_items; ++i) {	
+		if ( (xc[i] > EPS) && (xc[i] < 1.0-EPS) )
+		{
+			integer_sol = 0;
+			break;
+		}
+	}
+///////////////////////Alberto
+	if ( integer_sol ) 	
+	{
+		float lb_val = local_ub2;
+		if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+			printf("\n*** WARNING: continuous relaxation has an integer solution with value %f ***\n", lb_val);
+			printf("*** possibly update the incumbent and execute a backtracking ***\n\n");
+		}
+	}
+///////////////////////Alberto
+
+	
 	float local_lb = (float) (desol.lb_sum_profits + residual->sum_profits) *
                      (desol.lb_product_probabilities * residual->prod_probabilities);
+
+
+///////////////////////Alberto
+	if ( desol.lb > local_lb ) 
+	{
+		printf("\n\n*** WARNING: current lower bound is %f (instead of %f) ***\n\n", desol.lb, local_lb);
+	}
+///////////////////////Alberto
+
 
 	if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
 	    printf("\tLB from deterministic relaxation solution: %f\n", desol.lb);
@@ -450,6 +498,18 @@ static DEBounds get_de_bounds(
 	            desol.lb_product_probabilities, residual->prod_probabilities);
 	    printf("\tLocal LB: %f (vs %f)\n", local_lb, status->solution->value);
 	}
+
+
+///////////////////////Alberto
+	if ( (desol.lb >= local_ub) || (desol.lb >= local_ub2) || (local_lb >= local_ub) || (local_lb >= local_ub2) ) 
+	{
+		printf("\n\n*** WARNING: local lower bounds are %f and %f ***\n", desol.lb, local_lb);
+		printf("*** WARNING: local upper bounds are %f and %f ***\n", local_ub, local_ub2);
+		printf("*** WARNING: kill the node ***\n\n");
+	}
+///////////////////////Alberto
+
+
 
     if(current_node == 1u) {
         status->stats->de_lb_at_root = local_lb;
@@ -635,7 +695,7 @@ static void branch(
 ) {
 
 	// return if the node limit has been reached
-    	if ( (*(status->n_nodes)) >= max_nodes ) return;
+    	if ( (max_nodes>0) && ((*(status->n_nodes)) >= max_nodes) ) return;
 
 	// Left node: fix the item in the solution
 	TBKPBBResidualInstance left_residual = {
