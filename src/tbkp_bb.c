@@ -4,8 +4,9 @@
 
 #include "tbkp_bb.h"
 #include "tbkp_de_sol.h"
-#include "utils/pdqsort_c.h"
+#include "tbkp_cr_sol.h"
 #include "tbkp_boole_sol.h"
+#include "utils/pdqsort_c.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <combo.h>
@@ -20,220 +21,12 @@
 #define BB_VERBOSITY_INFO 1000
 #define EPS 1e-6f
 
-
-/************michele: rilassamento continuo (inizio) ***************/
-#define EPSC 1e-10
-
-/**********************************************************************/
-double bin_search(int n, double *x, double *d, uint_fast32_t *p, double *q)
-/**********************************************************************/
-{
-// next point is z = x + lambda *x   with lambda \in [0,1]
-        double bestobj = 0.0;
-        double bestl = -1.0;
-
-        double ptot = 0.0;
-        double product = 1.0;
-
-        // iterative loop
-        double l0 = 0.0;
-        double l1 = 1.0;
-        while ( l1 - l0 > EPSC )
-        {
-                // define two lambda values in the current interval
-                double lgap = l1 - l0;
-                double delta = lgap / 3;
-                double beta = l0 + delta;
-                double gamma = l0 + 2 * delta;
-
-                // evaluate the first point
-                ptot = 0.0;
-                product = 1.0;
-                for ( int j = 0; j < n; j++ )
-                {
-                        double zj = x[j] + beta * d[j];
-                        ptot += p[j] * zj;
-                        double alpha = 1.0 - q[j] * zj;
-                        product = product * alpha;
-                }
-                double objbeta = ptot * product;
-                if ( objbeta > bestobj )
-                {
-                        bestobj = objbeta;
-                        bestl = beta;
-                }
-
-                // evaluate the second point
-                ptot = 0.0;
-                product = 1.0;
-                for ( int j = 0; j < n; j++ )
-                {
-                        double zj = x[j] + gamma * d[j];
-                        ptot += p[j] * zj;
-                        double alpha = 1.0 - q[j] * zj;
-                        product = product * alpha;
-                }
-                double objgamma = ptot * product;
-                if ( objgamma > bestobj )
-                {
-                        bestobj = objgamma;
-                        bestl = gamma;
-                }
-
-                if ( objbeta < objgamma )
-                {
-                        // remove interval [l0, beta]
-                        l0 = beta;
-                }
-                else
-                {
-                        // remove interval [gamma, l1]
-                        l1 = gamma;
-                }
-        }
-
-	return bestl;
-}
-
-
-/**********************************************************************/
-void solve_Dantzig(int n, double *p, uint_fast32_t *w, int c, TBKPBBFixedStatus* xbra, double *y)
-/**********************************************************************/
-{
-        uint_fast32_t cres = c;
-        int *flag = (int *) calloc(n, sizeof(int));
-        for ( int j = 0; j < n; j++ )
-        {
-                y[j] = 0;
-                flag[j] = 0;
-		// handle items that have been fixed by branching
-		if ( xbra[j] != -1 ) 
-		{
-			flag[j] = 1;
-			if ( xbra[j] == 1 ) 
-			{
-				y[j] = 1.0;
-				cres -= w[j];
-			}
-		}
-        }
-        for ( int cont = 0; cont < n; cont++ )
-        {
-                if ( cres <= 0 ) break;
-
-                double maxratio = 0.0;
-                int index = -1;
-                for ( int j = 0; j < n; j++ )
-                {
-                        if ( flag[j] == 0 )
-                        {
-                                double ratio = p[j]/w[j];
-                                if ( ratio > maxratio )
-                                {
-                                        maxratio = ratio;
-                                        index = j;
-                                }
-                        }
-                }
-
-                if ( index < 0 ) break;
-                flag[index] = 1;
-                if ( cres > w[index] )
-                {
-                        y[index] = 1.0;
-                        cres -= w[index];
-                }
-                else
-                {
-                        y[index] = 1.0 * cres / w[index];
-                        cres = 0;
-                }
-        }
-        free(flag);
-
-}
-
-
-
-/**********************************************************************/
-float solve_cont(const TBKPInstance *const instance, TBKPBBFixedStatus* xbra, double *xc)
-/**********************************************************************/
-{
-	int n = instance->n_items;
-	double *a = (double *) calloc(n, sizeof(double)); // \alpha variables
-	double *q = (double *) calloc(n, sizeof(double)); // q probabilities
-	for ( int j = 0; j < n; j++ ) 
-	{
-		if ( xbra[j] == 1 ) xc[j] = 1.0; else xc[j] = 0.0;
-		a[j] = 1.0;
-		q[j] = 1.0 - instance->probabilities[j];
-	}
-	double product = 1.0;
-	double ptot = 0.0;
-	double *g = (double *) calloc(n, sizeof(double)); // gradient
-	double *d = (double *) calloc(n, sizeof(double)); // improving direction (if any)
-	double *y = (double *) calloc(n, sizeof(double)); // next solution
-	float objval = 0.0;
-	while ( 1 ) 
-	{
-		float oldobj = objval;
-
-		// compute the gradient
-		product = 1.0;
-                for ( int j = 0; j < n; j++ ) product *= (1.0 - q[j]*xc[j]);
-                for ( int j = 0; j < n; j++ )
-                {
-                        double value = instance->profits[j] - ptot*q[j]/(1.0 - q[j]*xc[j]);
-                        g[j] = product * value;
-                }
-		
-		// find a candidate direction for improving
-		solve_Dantzig(n, g, instance->weights, instance->capacity, xbra, y);
-		for ( int j = 0; j < n; j++ ) d[j] = y[j] - xc[j];
-
-		// check if the direction is improving
-		double delta = 0.0;
-		for ( int j = 0; j < n; j++ ) delta += g[j] * d[j];
-		if ( delta < EPSC ) break;
-
-		// determine the optimal value for parameter \lambda
-		double lambda = bin_search(n, xc, d, instance->profits, q);
-
-		// determine the next point
-		ptot = 0.0;
-		product = 1.0;
-		for ( int j = 0; j < n; j++ )
-                {
-                        double zj = xc[j] +  lambda * d[j];
-                        ptot += instance->profits[j] * zj;
-                        a[j] = 1.0 - q[j] * zj;
-                        product = product * a[j];
-                        xc[j] = zj;
-                }
-                objval = ptot * product;
-		
-		// break if no improvement
-		if ( objval - oldobj < EPSC ) break;
-	}
-
-	free(y);
-	free(d);
-	free(g);
-	free(q);
-	free(a);
-
-	return objval;
-}
-
-/************michele: rilassamento continuo (fine) ***************/
-
-
 /************************************************************
  * LOCAL HELPER FUNCTIONS                                   *
  ************************************************************/
 
 static void tbkp_bb_solve_node(
-        TBKPBBAlgStatus* status, float parent_ub, TBKPBBResidualInstance residual, _Bool early_combo, size_t max_nodes);
+        TBKPBBAlgStatus* status, float parent_ub, TBKPBBResidualInstance residual, _Bool early_combo);
 
 /** Finds the next time-bomb item to branch on. If no such item exists (because we either
  *  ran out of TB items, or there is no item which fits in the residual capacity), returns
@@ -332,7 +125,7 @@ static size_t* residual_instance(const TBKPBBAlgStatus *const status, size_t n_u
 /**
  * Structure to contain info from the Deterministic Equivalent bounds,
  * which are useful in the B&B nodes. It contains the UB and LB at the
- * local(current) node, plus a flag indicating if the current node should
+ * local (current) node, plus a flag indicating if the current node should
  * be prunned - i.e., because the local UB is worse than the best-known
  * LB.
  */
@@ -340,8 +133,20 @@ typedef struct {
 	float local_ub;
 	float local_lb;
 	_Bool should_prune;
-	float local_ub2;	// ub from continuous relaxation
 } DEBounds;
+
+/**
+ * Structure to contain infor from the Continuous Relaxation bound,
+ * which are useful in the B&B nodes. It contains the UB at the local
+ * node, a flag telling whether the UB is also a LB (i.e., the solution
+ * was integer), and a flag indicating if the current node should be
+ * pruned - i.e., because the local UB is worse than the best-known LB.
+ */
+typedef struct {
+    float local_ub;
+    _Bool is_lb;
+    _Bool should_prune;
+} CRBound;
 
 /**
  * Updates the current best solution from the LB-solution gotten from the
@@ -373,7 +178,38 @@ static void update_best_solution_from_de(
     }
 
     if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-        printf("\tSolution update from DE: new value %f\n", status->solution->value);
+        printf("\t\tSolution update from DE: new value %f\n", status->solution->value);
+    }
+}
+
+/**
+ * Updates the current best solution from the Continuous Relaxation solution.
+ *
+ * @param status                Current state of the algorithm.
+ * @param crsol                 Continuous Relaxation solution.
+ * @param local_lb              Local LB, i.e., obj value of the DE solution.
+ */
+static void update_best_solution_from_cr(
+        TBKPBBAlgStatus* status,
+        const TBKPContinuousRelaxationSol *const crsol,
+        float local_lb
+) {
+    status->solution->value = local_lb;
+    status->solution->prod_probabilities = crsol->lb_product_probabilities;
+    status->solution->sum_profits = crsol->lb_sum_profits;
+
+    for(size_t i = 0u; i < status->instance->n_items; ++i) {
+        if(status->x[i] != UNFIXED) {
+            status->solution->x[i] = status->x[i];
+        }
+    }
+
+    for(size_t i = 0u; i < crsol->n_items; ++i) {
+        status->solution->x[crsol->items[i]] = true;
+    }
+
+    if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+        printf("\t\tSolution update from CR: new value %f\n", status->solution->value);
     }
 }
 
@@ -407,13 +243,64 @@ static void update_best_solution_from_boole(
     }
 
     if(BB_VERBOSITY_CURRENT > BB_VERBOSITY_INFO) {
-        printf("\tSolution update from Boole: new value %f\n", status->solution->value);
+        printf("\t\tSolution update from Boole: new value %f\n", status->solution->value);
     }
+}
+
+/** Gets the Continuous Relaxation UB at the current node.
+ *  If the UB is worse than the current best LB, it signals to prune the current node.
+ *  If the relaxation solution is integer, the UB also works as a LB.
+ *  In this case, if the LB is better than the current best LB, it updates it.
+ *
+ *  @param status               Current state of the algorithm.
+ *  @return                     The CRBounds object containind the CR bounds and the pruning flag.
+ */
+static CRBound get_cr_bound(
+    TBKPBBAlgStatus *const status,
+    size_t current_node
+) {
+    // Compute the continuous relaxation bound
+	TBKPContinuousRelaxationSol crsol = tbkp_crsol_get(status->instance, status->x);
+
+	if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+	    printf("\t\tUB (continuous relaxation): %f (vs %f)\n", crsol.ub, status->solution->value);
+	}
+
+	if(crsol.ub <= status->solution->value) {
+		return (CRBound){.local_ub = crsol.ub, .is_lb = crsol.is_lb, .should_prune = true};
+	}
+
+    if(current_node <= 1u) {
+        status->stats->cr_ub_at_root = crsol.ub;
+        status->stats->time_to_compute_cr_at_root = crsol.time_to_compute;
+    }
+
+	// Check if the solution of the continuous relaxation is integer and improves
+	if(crsol.is_lb) {
+        const float local_lb = crsol.ub;
+
+        if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+	        printf("\t\tLB (continuous relaxation): %f (vs %f)\n", crsol.ub, status->solution->value);
+	    }
+
+        if(local_lb > status->stats->lb) {
+            status->stats->lb = local_lb;
+        }
+
+        // Possibly update the incumbent
+	    if(local_lb > status->solution->value) {
+            update_best_solution_from_cr(status, &crsol, local_lb);
+	    }
+	}
+
+    tbkp_crsol_free_inside(&crsol);
+
+	return (CRBound){.local_ub = crsol.ub, .is_lb = crsol.is_lb, .should_prune = false};
 }
 
 /**
  * Gets the Deterministic Equivalent bounds (UB and LB) at the current node.
- * If the UB is worse than the current best LB, it signal to prune the current node.
+ * If the UB is worse than the current best LB, it signals to prune the current node.
  * It the LB is better than the current best LB, it updates it.
  *
  * @param status                Current state of the algorithm.
@@ -435,10 +322,7 @@ static DEBounds get_de_bounds(
 	// Compute the local upper bound and possibly kill the node
 	float local_ub = ((float)residual->sum_profits + desol.ub) * residual->prod_probabilities;
 	if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-	    printf("\tUB from deterministic relaxation solution: %f\n", desol.ub);
-	    printf("\tSum of profits: %" PRIuFAST32 ", Product of probabilities: %f\n",
-	            residual->sum_profits, residual->prod_probabilities);
-	    printf("\tLocal UB: %f (vs %f)\n", local_ub, status->solution->value);
+	    printf("\t\tUB (deterministic relaxation): %f\n", local_ub);
 	}
 
 	if(local_ub <= status->solution->value) {
@@ -446,72 +330,15 @@ static DEBounds get_de_bounds(
 		free(items); items = NULL;
 		return (DEBounds){.local_ub = local_ub, .local_lb = 0.0f, .should_prune = true};
 	}
-
-	// compute the continuous relaxation upper bound
-	double *xc = (double *) calloc(status->instance->n_items, sizeof(double));
-	float local_ub2 = solve_cont(status->instance, status->x, xc);
-	if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-	    printf("\tUB from continuous relaxation: %f (vs %f)\n", local_ub2, status->solution->value);
-	}
-	if(local_ub2 <= status->solution->value) {
-		free(items); items = NULL;
-		return (DEBounds){.local_ub2 = local_ub2, .local_lb = 0.0f, .should_prune = true};
-	}
-	// check if the solution of the continuous relaxation is integer
-	int integer_sol = 1;
-	for(size_t i = 0u; i < status->instance->n_items; ++i) {	
-		if ( (xc[i] > EPS) && (xc[i] < 1.0-EPS) )
-		{
-			integer_sol = 0;
-			break;
-		}
-	}
-///////////////////////Alberto
-	if ( integer_sol ) 	
-	{
-		float lb_val = local_ub2;
-		if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-			printf("\n*** WARNING: continuous relaxation has an integer solution with value %f ***\n", lb_val);
-			printf("*** possibly update the incumbent and execute a backtracking ***\n\n");
-		}
-	}
-///////////////////////Alberto
-
 	
 	float local_lb = (float) (desol.lb_sum_profits + residual->sum_profits) *
                      (desol.lb_product_probabilities * residual->prod_probabilities);
 
-
-///////////////////////Alberto
-	if ( desol.lb > local_lb ) 
-	{
-		printf("\n\n*** WARNING: current lower bound is %f (instead of %f) ***\n\n", desol.lb, local_lb);
-	}
-///////////////////////Alberto
-
-
 	if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-	    printf("\tLB from deterministic relaxation solution: %f\n", desol.lb);
-	    printf("\tSum of profits: %" PRIuFAST32 " (fixed %" PRIuFAST32 "), ",
-	            desol.lb_sum_profits, residual->sum_profits);
-	    printf("Product of probabilities %f (fixed %f)\n",
-	            desol.lb_product_probabilities, residual->prod_probabilities);
-	    printf("\tLocal LB: %f (vs %f)\n", local_lb, status->solution->value);
+	    printf("\t\tLB (deterministic relaxation): %f (vs %f)\n", local_lb, status->solution->value);
 	}
 
-
-///////////////////////Alberto
-	if ( (desol.lb >= local_ub) || (desol.lb >= local_ub2) || (local_lb >= local_ub) || (local_lb >= local_ub2) ) 
-	{
-		printf("\n\n*** WARNING: local lower bounds are %f and %f ***\n", desol.lb, local_lb);
-		printf("*** WARNING: local upper bounds are %f and %f ***\n", local_ub, local_ub2);
-		printf("*** WARNING: kill the node ***\n\n");
-	}
-///////////////////////Alberto
-
-
-
-    if(current_node == 1u) {
+    if(current_node <= 1u) {
         status->stats->de_lb_at_root = local_lb;
         status->stats->de_ub_at_root = local_ub;
         status->stats->time_to_compute_de_at_root = desol.time_to_compute;
@@ -555,15 +382,10 @@ float get_boole_bound(
                      (boolesol.lb_product_probabilities * residual->prod_probabilities);
 
     if(BB_VERBOSITY_CURRENT > BB_VERBOSITY_INFO) {
-        printf("\tLB from Boole relaxation solution: %.3f\n", boolesol.lb);
-        printf("\tSum of profits: %" PRIuFAST32 " (fixed %" PRIuFAST32 ")\n",
-                boolesol.lb_sum_profits, residual->sum_profits);
-        printf("\tProduct of probabilities %f (fixed %f)\n",
-                boolesol.lb_product_probabilities, residual->prod_probabilities);
-        printf("\tLocal LB: %f (vs %f)\n", local_lb, status->solution->value);
+        printf("\t\tLB (Boole relaxation): %f (vs %f)\n", local_lb, status->solution->value);
     }
 
-    if(current_node == 1u) {
+    if(current_node <= 1u) {
         status->stats->boole_lb_at_root = local_lb;
         status->stats->time_to_compute_boole_at_root = boolesol.time_to_compute;
     }
@@ -645,7 +467,7 @@ static void solve_det_kp(TBKPBBAlgStatus* status, const TBKPBBResidualInstance *
 			float zz = (float)sumprof * residual->prod_probabilities;
 
 			if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-			    printf("\tCOMBO solution: %ld, sumprof: %" PRIuFAST32 " => New z: %f (best z: %f)\n",
+			    printf("\t\tCOMBO solution: %ld, sumprof: %" PRIuFAST32 " => New z: %f (best z: %f)\n",
 			            myz, sumprof, zz, status->solution->value);
 			}
 
@@ -690,12 +512,16 @@ static void branch(
         TBKPBBResidualInstance residual,
         float parent_ub,
         size_t current_node,
-        int jbra,
-        size_t max_nodes
+        int jbra
 ) {
+	// Return if the node limit has been reached
+    if(status->params->max_nodes > 0u && *(status->n_nodes) >= status->params->max_nodes) {
+        if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+            printf("Maximum number of nodes (%zu) reached!\n", status->params->max_nodes);
+        }
 
-	// return if the node limit has been reached
-    	if ( (max_nodes>0) && ((*(status->n_nodes)) >= max_nodes) ) return;
+        return;
+    }
 
 	// Left node: fix the item in the solution
 	TBKPBBResidualInstance left_residual = {
@@ -717,14 +543,20 @@ static void branch(
 	    printf("\tProduct of probabilities in the child node: %.3f\n", left_residual.prod_probabilities);
 	}
 
-	tbkp_bb_solve_node(status, parent_ub, left_residual, true /* early combo on 1-branch */, max_nodes);
+	tbkp_bb_solve_node(status, parent_ub, left_residual, true /* early combo on 1-branch */);
 
 	if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
 	    printf("[NODE %zu] Returned from left node to father node\n", current_node);
 	}
 
-	// return if the node limit has been reached
-    	if ( (*(status->n_nodes)) >= max_nodes ) return;
+	// Return if the node limit has been reached
+    if(status->params->max_nodes > 0u && *(status->n_nodes) >= status->params->max_nodes) {
+        if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+            printf("Maximum number of nodes (%zu) reached!\n", status->params->max_nodes);
+        }
+
+        return;
+    }
 
 	// Right node: remove the item
     // The residual instance stays the same.
@@ -742,7 +574,7 @@ static void branch(
         printf("\tProduct of probabilities in the child node: %.3f\n", residual.prod_probabilities);
 	}
 
-	tbkp_bb_solve_node(status, parent_ub, residual, false /* no early combo on 0-branch */, max_nodes);
+	tbkp_bb_solve_node(status, parent_ub, residual, false /* no early combo on 0-branch */);
 
     if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
         printf("[NODE %zu] Returned from right node to father node\n", current_node);
@@ -763,8 +595,7 @@ static void tbkp_bb_solve_node(
         TBKPBBAlgStatus* status,
         float parent_ub,
         TBKPBBResidualInstance residual,
-        _Bool early_combo,
-        size_t max_nodes)
+        _Bool early_combo)
 {
     if(timeout(status, parent_ub)) {
 		return;
@@ -791,18 +622,42 @@ static void tbkp_bb_solve_node(
 
 	float local_ub = parent_ub;
 	float local_lb = 0.0f;
+    float new_ub = FLT_MAX;
+    float new_lb = 0.0f;
+
+    if(status->params->use_cr_bound) {
+        CRBound cr_bound = get_cr_bound(status, current_node);
+
+        if(cr_bound.local_ub < new_ub - EPS) {
+            // New UB improved.
+            new_ub = cr_bound.local_ub;
+        }
+
+        if(cr_bound.is_lb && cr_bound.local_ub > new_lb) {
+            // New LB improved.
+            new_lb = cr_bound.local_ub;
+        }
+
+        if(cr_bound.should_prune) {
+            if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+                printf("[NODE %zu] Pruning node thanks to CR bound.\n", current_node);
+            }
+
+            return;
+        }
+    }
 
 	if(status->params->use_de_bounds) {
 		DEBounds de_bounds = get_de_bounds(status, &residual, current_node, items, n_unfixed_items);
 
-        if(local_ub == INITIAL_UB_PLACEHOLDER || de_bounds.local_ub < local_ub - EPS) {
+        if(de_bounds.local_ub < new_ub - EPS) {
             // Local UB improved.
-            local_ub = de_bounds.local_ub;
+            new_ub = de_bounds.local_ub;
         }
 
-        if(de_bounds.local_lb > local_lb) {
+        if(de_bounds.local_lb > new_lb) {
             // Local LB improved.
-            local_lb = de_bounds.local_lb;
+            new_lb = de_bounds.local_lb;
         }
 
 		if(de_bounds.should_prune) {
@@ -817,15 +672,28 @@ static void tbkp_bb_solve_node(
 	if(status->params->use_boole_bound && current_node % status->params->boole_bound_frequency == 1u) {
 		float boole_lb = get_boole_bound(status, &residual, current_node, items, n_unfixed_items);
 
-		if(boole_lb > local_lb) {
+		if(boole_lb > new_lb) {
 		    // Local LB improved.
-		    local_lb = boole_lb;
+		    new_lb = boole_lb;
 		}
 	}
 
+    if(local_ub == INITIAL_UB_PLACEHOLDER || new_ub < local_ub - EPS) {
+        local_ub = new_ub;
+    }
+
+    if(new_lb > local_lb) {
+        local_lb = new_lb;
+    }
+
+    if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+        printf("\tOverall local LB for this node: %.6f\n", local_lb);
+        printf("\tOverall local UB for this node: %.6f\n", local_ub);
+    }
+
 	if(local_lb > local_ub - EPS && local_lb != INITIAL_LB_PLACEHOLDER && local_ub != INITIAL_UB_PLACEHOLDER) {
 	    if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-	        printf("[NODE %zu] LB and UB coincide (%.3f). Closing node.\n", current_node, local_lb);
+	        printf("[NODE %zu] LB and UB coincide (%.6f). Closing node.\n", current_node, local_lb);
 	    }
 
 	    free(items); items = NULL;
@@ -865,7 +733,7 @@ static void tbkp_bb_solve_node(
         return;
     }
 
-	branch(status, residual, local_ub, current_node, jbra, max_nodes);
+	branch(status, residual, local_ub, current_node, jbra);
 
 	free(items); items = NULL;
 }
@@ -907,7 +775,7 @@ TBKPBBSolution* tbkp_branch_and_bound(const TBKPInstance *const instance, TBKPBB
         printf("Starting solution at the root node.\n");
     }
 
-    tbkp_bb_solve_node(&status, INITIAL_UB_PLACEHOLDER, residual, true /* early combo */, params->num_nodes);
+    tbkp_bb_solve_node(&status, INITIAL_UB_PLACEHOLDER, residual, true /* early combo */);
 
     free(x); x = NULL;
 

@@ -12,6 +12,8 @@ add_executable(tbkp
         src/main.c
         src/tbkp_instance.h
         src/tbkp_instance.c
+        src/tbkp_cr_sol.h
+        src/tbkp_cr_sol.c
         src/tbkp_de_sol.h
         src/tbkp_de_sol.c
         src/tbkp_boole_sol.h

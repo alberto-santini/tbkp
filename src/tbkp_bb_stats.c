@@ -20,6 +20,8 @@ TBKPBBStats tbkp_stats_init(void) {
             .boole_lb_at_root = INITIAL_LB_PLACEHOLDER,
             .de_lb_at_root = INITIAL_LB_PLACEHOLDER,
             .de_ub_at_root = INITIAL_UB_PLACEHOLDER,
+            .cr_ub_at_root = INITIAL_UB_PLACEHOLDER,
+            .time_to_compute_cr_at_root = 0.0f,
             .time_to_compute_boole_at_root = 0.0f,
             .time_to_compute_de_at_root = 0.0f,
             .n_nodes = 0u,
@@ -47,7 +49,11 @@ void tbkp_stats_to_file(
         exit(EXIT_FAILURE);
     }
 
-    fprintf(f, "early_combo,ub,lb,gap,time_s,n_nodes");
+    fprintf(f, "early_combo,max_nodes,ub,lb,gap,time_s,n_nodes");
+
+    if(params->use_cr_bound) {
+        fprintf(f, ",cr_ub_root,cr_time_root");
+    }
 
     if(params->use_de_bounds) {
         fprintf(f, ",de_ub_root,de_lb_root,de_time_root");
@@ -59,15 +65,19 @@ void tbkp_stats_to_file(
 
     fprintf(f, "\n");
 
-    fprintf(f, "%d,%.3f,%.3f,%.3f,%.3f,%zu",
-            params->use_early_combo, stats->ub, stats->lb, stats->gap * 100.0f, stats->elapsed_time, stats->n_nodes);
+    fprintf(f, "%d,%zu,%.3f,%.3f,%.3f,%.3f,%zu",
+            params->use_early_combo, params->max_nodes, stats->ub, stats->lb, stats->gap * 100.0f, stats->elapsed_time, stats->n_nodes);
+
+    if(params->use_cr_bound) {
+        fprintf(f, ",%.3f,%.3f", stats->cr_ub_at_root, stats->time_to_compute_cr_at_root);
+    }
 
     if(params->use_de_bounds) {
-        fprintf(f, "%.3f,%.3f,%.3f", stats->de_ub_at_root, stats->de_lb_at_root, stats->time_to_compute_de_at_root);
+        fprintf(f, ",%.3f,%.3f,%.3f", stats->de_ub_at_root, stats->de_lb_at_root, stats->time_to_compute_de_at_root);
     }
 
     if(params->use_boole_bound) {
-        fprintf(f, "%.3f,%.3f,%zu",
+        fprintf(f, ",%.3f,%.3f,%zu",
                 stats->boole_lb_at_root, stats->time_to_compute_boole_at_root, params->boole_bound_frequency);
     }
 

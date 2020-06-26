@@ -12,10 +12,11 @@ typedef struct {
     char* output_file;
     float timeout;
     size_t boole_bound_frequency;
+    _Bool use_cr_bound;
     _Bool use_de_bounds;
     _Bool use_boole_bound;
     _Bool use_early_combo;
-    size_t num_nodes;
+    size_t max_nodes;
 } TBKPBBParams;
 
 #endif //TBKP_TBKP_BB_PARAMS_H

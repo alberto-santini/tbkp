@@ -21,8 +21,10 @@ typedef struct {
     float boole_lb_at_root;
     float de_lb_at_root;
     float de_ub_at_root;
+    float cr_ub_at_root;
     float time_to_compute_boole_at_root;
     float time_to_compute_de_at_root;
+    float time_to_compute_cr_at_root;
     size_t n_nodes;
 } TBKPBBStats;
 
