@@ -270,7 +270,7 @@ static CRBound get_cr_bound(
 		return (CRBound){.local_ub = crsol.ub, .is_lb = crsol.is_lb, .should_prune = true};
 	}
 
-    if(current_node <= 1u) {
+    if(current_node == 1u) {
         status->stats->cr_ub_at_root = crsol.ub;
         status->stats->time_to_compute_cr_at_root = crsol.time_to_compute;
     }
@@ -338,7 +338,7 @@ static DEBounds get_de_bounds(
 	    printf("\t\tLB (deterministic relaxation): %f (vs %f)\n", local_lb, status->solution->value);
 	}
 
-    if(current_node <= 1u) {
+    if(current_node == 1u) {
         status->stats->de_lb_at_root = local_lb;
         status->stats->de_ub_at_root = local_ub;
         status->stats->time_to_compute_de_at_root = desol.time_to_compute;
@@ -385,7 +385,7 @@ float get_boole_bound(
         printf("\t\tLB (Boole relaxation): %f (vs %f)\n", local_lb, status->solution->value);
     }
 
-    if(current_node <= 1u) {
+    if(current_node == 1u) {
         status->stats->boole_lb_at_root = local_lb;
         status->stats->time_to_compute_boole_at_root = boolesol.time_to_compute;
     }
@@ -462,22 +462,25 @@ static void solve_det_kp(TBKPBBAlgStatus* status, const TBKPBBResidualInstance *
 				}
 			}
 
-			// Compute the new solution value and possibly update the incumbent
+			// Compute the new solution's value
 			uint_fast32_t sumprof = residual->sum_profits + (uint_fast32_t)myz;
 			float zz = (float)sumprof * residual->prod_probabilities;
 
-			if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-			    printf("\t\tCOMBO solution: %ld, sumprof: %" PRIuFAST32 " => New z: %f (best z: %f)\n",
-			            myz, sumprof, zz, status->solution->value);
-			}
+            if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+                    printf("\tCOMBO solution: %.3f\n", zz);
+                }
 
+            // Possibly update the incumbent
 			if(zz > status->stats->lb) {
+                assert(zz > status->solution->value);
                 status->stats->lb = zz;
-			}
+                status->solution->value = zz;
+                status->solution->sum_profits = sumprof;
+                status->solution->prod_probabilities = residual->prod_probabilities;
 
-			// Possibly update the incumbent
-			if(zz > status->solution->value) {
-				status->solution->value = zz;
+                if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+                    printf("\tCOMBO found a new best feasible solution (%.3f vs %.3f)\n", zz, status->stats->lb);
+                }
 
 				// Time-bomb objects
 				for(size_t i = 0u; i < status->instance->n_items; ++i) {
@@ -640,7 +643,7 @@ static void tbkp_bb_solve_node(
 
         if(cr_bound.should_prune) {
             if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-                printf("[NODE %zu] Pruning node thanks to CR bound.\n", current_node);
+                printf("[NODE %zu] Pruning node thanks to CR bound\n", current_node);
             }
 
             return;
@@ -662,7 +665,7 @@ static void tbkp_bb_solve_node(
 
 		if(de_bounds.should_prune) {
 			if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-				printf("[NODE %zu] Pruning node thanks to DE bounds.\n", current_node);
+				printf("[NODE %zu] Pruning node thanks to DE bounds\n", current_node);
 			}
 
 			return;
@@ -687,13 +690,13 @@ static void tbkp_bb_solve_node(
     }
 
     if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-        printf("\tOverall local LB for this node: %.6f\n", local_lb);
-        printf("\tOverall local UB for this node: %.6f\n", local_ub);
+        printf("\tLocal LB for this node: %.6f\n", local_lb);
+        printf("\tLocal UB for this node: %.6f\n", local_ub);
     }
 
 	if(local_lb > local_ub - EPS && local_lb != INITIAL_LB_PLACEHOLDER && local_ub != INITIAL_UB_PLACEHOLDER) {
 	    if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-	        printf("[NODE %zu] LB and UB coincide (%.6f). Closing node.\n", current_node, local_lb);
+	        printf("[NODE %zu] LB and UB coincide (%.6f): closing node\n", current_node, local_lb);
 	    }
 
 	    free(items); items = NULL;
@@ -706,7 +709,7 @@ static void tbkp_bb_solve_node(
 		// We only need to call combo again on the 1 branches.
 
 		if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-		    printf("[NODE %zu] Calling COMBO.\n", current_node);
+		    printf("[NODE %zu] Calling COMBO\n", current_node);
 		}
 
 		solve_det_kp(status, &residual);
@@ -720,12 +723,11 @@ static void tbkp_bb_solve_node(
         // Note: we are in a leaf node!
 
         if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-            printf("[NODE %zu] No branching item. Leaf node.\n", current_node);
+            printf("[NODE %zu] No branching item: leaf node\n", current_node);
         }
 
         if(!status->params->use_early_combo) {
-            // If not using early combo, we call combo only in the leaf nodes,
-            // i.e., here!
+            // If not using early combo, we call combo only in the leaf nodes, i.e., here!
             solve_det_kp(status, &residual);
         }
 
@@ -772,7 +774,7 @@ TBKPBBSolution* tbkp_branch_and_bound(const TBKPInstance *const instance, TBKPBB
     };
 
     if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-        printf("Starting solution at the root node.\n");
+        printf("Starting solution at the root node\n");
     }
 
     tbkp_bb_solve_node(&status, INITIAL_UB_PLACEHOLDER, residual, true /* early combo */);
@@ -784,7 +786,7 @@ TBKPBBSolution* tbkp_branch_and_bound(const TBKPInstance *const instance, TBKPBB
     stats->n_nodes = n_nodes;
 
     if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-        printf("Tree exploration completed after %zu nodes.\n", n_nodes);
+        printf("Tree exploration completed after %zu nodes\n", n_nodes);
     }
 
     if(stats->ub == INITIAL_UB_PLACEHOLDER) {
