@@ -584,7 +584,7 @@ float get_boole_bound(
 
 /**
  * Solves the deterministic Knapsack Problem when all TB objects are fixed, at a leaf node.
- * If the new solution is better than `status->stats->lb`, it updates it.
+ * If the new solution is better than `status->stats->lb`, it updates it. 
  *
  * @param status                Current state of the algorithm.
  * @param residual              Current residual instance.
