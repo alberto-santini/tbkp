@@ -39,7 +39,7 @@ static void tbkp_bb_solve_node(
 static int tbkp_bb_branch_item(const TBKPBBAlgStatus *const status, const TBKPBBResidualInstance *const residual) {
     // Find the first uncertain item that is not fixed and fits in the residual capacity
     for(size_t i = 0u; i < status->instance->n_items; ++i) {
-        if(status->instance->probabilities[i] > 1.0f - EPS) continue;
+        if(status->instance->probabilities[i] >= 1.0f - EPS) continue;
         if(status->x[i] != UNFIXED) continue;
         if(status->instance->weights[i] > residual->res_capacity) continue;
 
@@ -414,7 +414,7 @@ float get_boole_bound(
 static void solve_det_kp(TBKPBBAlgStatus* status, const TBKPBBResidualInstance *const residual) {
 		size_t n_det_items = 0u;
 		for(size_t i = 0; i < status->instance->n_items; ++i) {
-		    if(status->instance->probabilities[i] > 1.0 - EPS) {
+		    if(status->instance->probabilities[i] >= 1.0 - EPS) {
 		        // Deterministic items should all be unfixed.
 		        assert(status->x[i] == UNFIXED);
 		        n_det_items++;
@@ -433,7 +433,7 @@ static void solve_det_kp(TBKPBBAlgStatus* status, const TBKPBBResidualInstance *
 
 			size_t det_cnt = 0u;
 			for(size_t i = 0; i < status->instance->n_items; ++i) {
-				if((status->instance->probabilities[i] > 1.0 - EPS)) {
+				if((status->instance->probabilities[i] >= 1.0 - EPS)) {
 				    assert(status->x[i] == UNFIXED);
 
 					cmb_items[det_cnt] = (cmb_item)
@@ -694,7 +694,7 @@ static void tbkp_bb_solve_node(
         printf("\tLocal UB for this node: %.6f\n", local_ub);
     }
 
-	if(local_lb > local_ub - EPS && local_lb != INITIAL_LB_PLACEHOLDER && local_ub != INITIAL_UB_PLACEHOLDER) {
+	if(local_lb >= local_ub - EPS && local_lb != INITIAL_LB_PLACEHOLDER && local_ub != INITIAL_UB_PLACEHOLDER) {
 	    if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
 	        printf("[NODE %zu] LB and UB coincide (%.6f): closing node\n", current_node, local_lb);
 	    }
