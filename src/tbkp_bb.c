@@ -283,12 +283,11 @@ static CRBound get_cr_bound(
 	        printf("\t\tLB (continuous relaxation): %f (vs %f)\n", crsol.ub, status->solution->value);
 	    }
 
+        // Possibly update the best integer solution
         if(local_lb > status->stats->lb) {
-            status->stats->lb = local_lb;
-        }
+            assert(local_lb > status->solution->value);
 
-        // Possibly update the incumbent
-	    if(local_lb > status->solution->value) {
+            status->stats->lb = local_lb;
             update_best_solution_from_cr(status, &crsol, local_lb);
 	    }
 	}
@@ -345,12 +344,11 @@ static DEBounds get_de_bounds(
         status->stats->time_to_compute_de_at_root = desol.time_to_compute;
     }
 
+    // Possibly update the best integer solution
 	if(local_lb > status->stats->lb) {
-	    status->stats->lb = local_lb;
-	}
+        assert(local_lb > status->solution->value);
 
-    // Possibly update the incumbent
-	if(local_lb > status->solution->value) {
+	    status->stats->lb = local_lb;
         update_best_solution_from_de(status, residual, &desol, local_lb);
 	}
 
@@ -391,12 +389,11 @@ float get_boole_bound(
         status->stats->time_to_compute_boole_at_root = boolesol.time_to_compute;
     }
 
+    // Possibly update the best integer solution
     if(local_lb > status->stats->lb) {
-        status->stats->lb = local_lb;
-    }
+        assert(local_lb > status->solution->value);
 
-    // Possibly update the incumbent
-    if(local_lb > status->solution->value) {
+        status->stats->lb = local_lb;
         update_best_solution_from_boole(status, residual, &boolesol, local_lb);
     }
 
@@ -407,7 +404,7 @@ float get_boole_bound(
 
 /**
  * Solves the deterministic Knapsack Problem when all TB objects are fixed, at a leaf node.
- * If the new solution is better than `status->stats->lb`, it updates it. 
+ * If the new solution is better than the current best feasible solution, it updates it. 
  *
  * @param status                Current state of the algorithm.
  * @param residual              Current residual instance.
@@ -474,6 +471,7 @@ static void solve_det_kp(TBKPBBAlgStatus* status, const TBKPBBResidualInstance *
             // Possibly update the incumbent
 			if(zz > status->stats->lb) {
                 assert(zz > status->solution->value);
+
                 status->stats->lb = zz;
                 status->solution->value = zz;
                 status->solution->sum_profits = sumprof;
