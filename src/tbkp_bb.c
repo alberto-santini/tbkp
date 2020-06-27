@@ -409,95 +409,99 @@ float get_boole_bound(
  * @param status                Current state of the algorithm.
  * @param residual              Current residual instance.
  */
-static void solve_det_kp(TBKPBBAlgStatus* status, const TBKPBBResidualInstance *const residual) {
-		size_t n_det_items = 0u;
-		for(size_t i = 0; i < status->instance->n_items; ++i) {
-		    if(status->instance->probabilities[i] >= 1.0 - EPS) {
-		        // Deterministic items should all be unfixed.
-		        assert(status->x[i] == UNFIXED);
-		        n_det_items++;
-		    }
-		}
+static float solve_det_kp(TBKPBBAlgStatus* status, const TBKPBBResidualInstance *const residual) {
+    size_t n_det_items = 0u;
+    for(size_t i = 0; i < status->instance->n_items; ++i) {
+        if(status->instance->probabilities[i] >= 1.0 - EPS) {
+            // Deterministic items should all be unfixed.
+            assert(status->x[i] == UNFIXED);
+            n_det_items++;
+        }
+    }
 
-		if(n_det_items > 0u) {
-			cmb_item* cmb_items = malloc(n_det_items * sizeof(*cmb_items));
-			cmb_stype sumW = 0;
-			cmb_stype sumP = 0;
+    if(n_det_items > 0u) {
+        cmb_item* cmb_items = malloc(n_det_items * sizeof(*cmb_items));
+        cmb_stype sumW = 0;
+        cmb_stype sumP = 0;
 
-			if(!cmb_items) {
-			    printf("Cannot allocate memory for COMBO deterministic items\n");
-			    exit(EXIT_FAILURE);
-			}
+        if(!cmb_items) {
+            printf("Cannot allocate memory for COMBO deterministic items\n");
+            exit(EXIT_FAILURE);
+        }
 
-			size_t det_cnt = 0u;
-			for(size_t i = 0; i < status->instance->n_items; ++i) {
-				if((status->instance->probabilities[i] >= 1.0 - EPS)) {
-				    assert(status->x[i] == UNFIXED);
+        size_t det_cnt = 0u;
+        for(size_t i = 0; i < status->instance->n_items; ++i) {
+            if((status->instance->probabilities[i] >= 1.0 - EPS)) {
+                assert(status->x[i] == UNFIXED);
 
-					cmb_items[det_cnt] = (cmb_item)
-					{
-						.p = (cmb_itype) status->instance->profits[i],
-						.w = (cmb_itype) status->instance->weights[i],
-						.x = 0,
-						.pos = i
-					};
-					sumW += cmb_items[det_cnt].w;
-					sumP += cmb_items[det_cnt].p;
-                    det_cnt++;
-				}
-			}
+                cmb_items[det_cnt] = (cmb_item)
+                {
+                    .p = (cmb_itype) status->instance->profits[i],
+                    .w = (cmb_itype) status->instance->weights[i],
+                    .x = 0,
+                    .pos = i
+                };
+                sumW += cmb_items[det_cnt].w;
+                sumP += cmb_items[det_cnt].p;
+                det_cnt++;
+            }
+        }
 
-			cmb_stype myz = 0;
+        cmb_stype myz = 0;
 
-			// COMBO crashes if the total weight is less than the capacity!
-			if((uint_fast32_t) sumW > residual->res_capacity) {
-				myz = combo(&cmb_items[0], &cmb_items[n_det_items - 1], (cmb_stype)residual->res_capacity,
-				        0, INT32_MAX, true, false);
-			} else {
-				myz = sumP;
-				for(size_t i = 0u; i < n_det_items; ++i) {
-				    cmb_items[i].x = 1;
-				}
-			}
+        // COMBO crashes if the total weight is less than the capacity!
+        if((uint_fast32_t) sumW > residual->res_capacity) {
+            myz = combo(&cmb_items[0], &cmb_items[n_det_items - 1], (cmb_stype)residual->res_capacity,
+                    0, INT32_MAX, true, false);
+        } else {
+            myz = sumP;
+            for(size_t i = 0u; i < n_det_items; ++i) {
+                cmb_items[i].x = 1;
+            }
+        }
 
-			// Compute the new solution's value
-			uint_fast32_t sumprof = residual->sum_profits + (uint_fast32_t)myz;
-			float zz = (float)sumprof * residual->prod_probabilities;
+        // Compute the new solution's value
+        uint_fast32_t sumprof = residual->sum_profits + (uint_fast32_t)myz;
+        float zz = (float)sumprof * residual->prod_probabilities;
+
+        if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+                printf("\tCOMBO solution: %.3f\n", zz);
+            }
+
+        // Possibly update the incumbent
+        if(zz > status->stats->lb) {
+            assert(zz > status->solution->value);
+
+            status->stats->lb = zz;
+            status->solution->value = zz;
+            status->solution->sum_profits = sumprof;
+            status->solution->prod_probabilities = residual->prod_probabilities;
 
             if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-                    printf("\tCOMBO solution: %.3f\n", zz);
+                printf("\tCOMBO found a new best feasible solution (%.3f vs %.3f)\n", zz, status->stats->lb);
+            }
+
+            // Time-bomb objects
+            for(size_t i = 0u; i < status->instance->n_items; ++i) {
+                if(status->x[i] != UNFIXED) {
+                    status->solution->x[i] = status->x[i];
                 }
+            }
 
-            // Possibly update the incumbent
-			if(zz > status->stats->lb) {
-                assert(zz > status->solution->value);
-
-                status->stats->lb = zz;
-                status->solution->value = zz;
-                status->solution->sum_profits = sumprof;
-                status->solution->prod_probabilities = residual->prod_probabilities;
-
-                if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-                    printf("\tCOMBO found a new best feasible solution (%.3f vs %.3f)\n", zz, status->stats->lb);
+            // Non-time-bomb objects
+            for(size_t i = 0u; i < n_det_items; ++i) {
+                if(cmb_items[i].x) {
+                    status->solution->x[cmb_items[i].pos] = true;
                 }
+            }
+        }
 
-				// Time-bomb objects
-				for(size_t i = 0u; i < status->instance->n_items; ++i) {
-					if(status->x[i] != UNFIXED) {
-                        status->solution->x[i] = status->x[i];
-                    }
-				}
+        free(cmb_items); cmb_items = NULL;
 
-				// Non-time-bomb objects
-				for(size_t i = 0u; i < n_det_items; ++i) {
-					if(cmb_items[i].x) {
-                        status->solution->x[cmb_items[i].pos] = true;
-					}
-				}
-			}
+        return zz;
+    }
 
-            free(cmb_items); cmb_items = NULL;
-		}
+    return 0.0f;
 }
 
 /**
@@ -622,10 +626,10 @@ static void tbkp_bb_solve_node(
 		printf("\tNumber of unfixed items: %zu\n", n_unfixed_items);
 	}	
 
-	float local_ub = parent_ub;
-	float local_lb = 0.0f;
     float new_ub = FLT_MAX;
     float new_lb = 0.0f;
+
+    /** START COMPUTATION OF NEW UBs AND/OR LBs AT THIS NODE. **/
 
     if(status->params->use_cr_bound) {
         CRBound cr_bound = get_cr_bound(status, current_node);
@@ -680,19 +684,40 @@ static void tbkp_bb_solve_node(
 		}
 	}
 
+    if(status->params->use_early_combo && early_combo) {
+		// It's smarter to solve the deterministic 01KP early, with the TB items fixed until now. When
+		// branching on zero, we don't need to recompute this, because we inherit from the parent node.
+		// We only need to call combo again on the 1 branches.
+
+		if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+		    printf("[NODE %zu] Calling COMBO\n", current_node);
+		}
+
+		float cmb_lb = solve_det_kp(status, &residual);
+
+        if(cmb_lb > new_lb) {
+            // Local LB improved.
+            new_lb = cmb_lb;
+        }
+	}
+
+    /** END COMPUTATION OF NEW UBs AND/OR LBs AT THIS NODE. **/
+
+    // Check if exploring this node gave a tighter UB than what we had.
+    float local_ub = parent_ub;	
     if(local_ub == INITIAL_UB_PLACEHOLDER || new_ub < local_ub - EPS) {
         local_ub = new_ub;
     }
 
-    if(new_lb > local_lb) {
-        local_lb = new_lb;
-    }
+    // Nothing to check here. Just renaming new_lb to local_lb for consistency.
+    const float local_lb = new_lb;
 
     if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
         printf("\tLocal LB for this node: %.6f\n", local_lb);
         printf("\tLocal UB for this node: %.6f\n", local_ub);
     }
 
+    // Check if LB == UB; in this case, prune.
 	if(local_lb >= local_ub - EPS && local_lb != INITIAL_LB_PLACEHOLDER && local_ub != INITIAL_UB_PLACEHOLDER) {
 	    if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
 	        printf("[NODE %zu] LB and UB coincide (%.6f): closing node\n", current_node, local_lb);
@@ -700,18 +725,6 @@ static void tbkp_bb_solve_node(
 
 	    free(items); items = NULL;
 	    return;
-	}
-
-	if(status->params->use_early_combo && early_combo) {
-		// It's smarter to solve the deterministic 01KP early, with the TB items fixed until now. When
-		// branching on zero, we don't need to recompute this, because we inherit from the parent not.
-		// We only need to call combo again on the 1 branches.
-
-		if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-		    printf("[NODE %zu] Calling COMBO\n", current_node);
-		}
-
-		solve_det_kp(status, &residual);
 	}
 
     // Find the branching item
