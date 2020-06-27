@@ -295,7 +295,8 @@ static CRBound get_cr_bound(
 
     tbkp_crsol_free_inside(&crsol);
 
-	return (CRBound){.local_ub = crsol.ub, .is_lb = crsol.is_lb, .should_prune = false};
+    // If the cont relax is integer (crsol.is_lb) we can prune the node.
+	return (CRBound){.local_ub = crsol.ub, .is_lb = crsol.is_lb, .should_prune = crsol.is_lb};
 }
 
 /**
