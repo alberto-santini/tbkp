@@ -150,7 +150,7 @@ typedef struct {
 
 /**
  * Updates the current best solution from the LB-solution gotten from the
- * Deterministic Equivalent solution.
+ * Deterministic Equivalent solution + the fixed items.
  *
  * @param status                Current state of the algorithm.
  * @param residual              Current residual instance.
@@ -179,6 +179,34 @@ static void update_best_solution_from_de(
 
     if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
         printf("\t\tSolution update from DE: new value %f\n", status->solution->value);
+    }
+}
+
+/**
+ * Updates the current best solution from the LB-solution gotten from the
+ * Deterministic Equivalent solution only, disregarding the fixed items.
+ *
+ * @param status                Current state of the algorithm.
+ * @param desol                 Deterministic Equivalent solution.
+ */
+static void update_best_solution_from_de_alone(
+        TBKPBBAlgStatus* status,
+        const TBKPDeterministicEqSol *const desol
+) {
+    status->solution->value = desol->lb;
+    status->solution->prod_probabilities = desol->lb_product_probabilities;
+    status->solution->sum_profits = desol->lb_sum_profits;
+
+    for(size_t i = 0u; i < status->instance->n_items; ++i) {
+        status->solution->x[i] = false;
+    }
+
+    for(size_t i = 0u; i < desol->n_items; ++i) {
+        status->solution->x[desol->items[i]] = true;
+    }
+
+    if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+        printf("\t\tSolution update from DE alone: new value %f\n", status->solution->value);
     }
 }
 
@@ -334,6 +362,15 @@ static DEBounds get_de_bounds(
 	float local_lb = (float) (desol.lb_sum_profits + residual->sum_profits) *
                      (desol.lb_product_probabilities * residual->prod_probabilities);
 
+    // If the heuristic solution obtained with the deterministic bound is better
+    // by itself than it is when combining it with the residual instance, we should
+    // instead use this one as the best integer solution produced by this bound.
+    _Bool better_de_alone = false;
+    if(desol.lb > local_lb) {
+        better_de_alone = true;
+        local_lb = desol.lb;
+    }
+
 	if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
 	    printf("\t\tLB (deterministic relaxation): %f (vs %f)\n", local_lb, status->solution->value);
 	}
@@ -349,7 +386,12 @@ static DEBounds get_de_bounds(
         assert(local_lb > status->solution->value);
 
 	    status->stats->lb = local_lb;
-        update_best_solution_from_de(status, residual, &desol, local_lb);
+
+        if(better_de_alone) {
+            update_best_solution_from_de_alone(status, &desol);
+        } else {
+            update_best_solution_from_de(status, residual, &desol, local_lb);
+        }
 	}
 
 	tbkp_desol_free_inside(&desol);
