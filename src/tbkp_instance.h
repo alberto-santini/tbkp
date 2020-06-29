@@ -13,6 +13,10 @@ typedef struct {
     uint_fast32_t* weights;
     uint_fast32_t* profits;
     float* probabilities;
+
+    uint_fast32_t n_tb_items;
+    uint_fast32_t n_det_items;
+    uint_fast32_t last_tb_item_index;
 } TBKPInstance;
 
 TBKPInstance* tbkp_instance_read(const char* filename);

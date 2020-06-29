@@ -68,7 +68,7 @@ int main(int argc, const char** argv) {
     int error = GRBloadenv(&grb_env, NULL);
 
     if(!p.use_de_bounds) {
-        printf("ERROR!\n");
+        printf("Error: must use DE bounds.\n");
         exit(EXIT_FAILURE);
     }
 
@@ -83,7 +83,7 @@ int main(int argc, const char** argv) {
         printf("Gurobi setintparam output flag error: %d\n", error);
         exit(EXIT_FAILURE);
     }
-
+    
     TBKPBBSolution* bbsol = tbkp_branch_and_bound(instance, &stats, &p);
     tbkp_stats_to_file(&stats, &p);
 
