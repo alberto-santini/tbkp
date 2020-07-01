@@ -15,4 +15,6 @@ typedef struct {
 TBKPDPTables tbkp_dp_tables_init(const TBKPInstance* inst);
 void tbkp_dp_tables_free(TBKPDPTables* t);
 
+float tbkp_dp_solve(const TBKPInstance *const inst);
+
 #endif

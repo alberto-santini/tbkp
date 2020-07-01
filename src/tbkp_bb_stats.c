@@ -4,7 +4,7 @@
 
 #include "tbkp_bb_stats.h"
 #include "tbkp_bb_defs.h"
-#include "tbkp_bb_params.h"
+#include "tbkp_params.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <float.h>
@@ -36,7 +36,7 @@ void tbkp_stats_print(const TBKPBBStats *const stats) {
 
 void tbkp_stats_to_file(
         const TBKPBBStats *const stats,
-        const TBKPBBParams *const params)
+        const TBKPParams *const params)
 {
     if(!params->output_file) {
         return;

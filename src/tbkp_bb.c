@@ -797,7 +797,7 @@ static void tbkp_bb_solve_node(
  * END OF LOCAL HELPER FUNCTIONS                            *
  ************************************************************/
 
-TBKPBBSolution* tbkp_branch_and_bound(const TBKPInstance *const instance, TBKPBBStats* stats, TBKPBBParams* params) {
+TBKPBBSolution* tbkp_branch_and_bound(const TBKPInstance *const instance, TBKPBBStats* stats, TBKPParams* params) {
     TBKPBBSolution* solution = tbkp_sol_init(instance);
     TBKPBBFixedStatus* x = malloc(instance->n_items * sizeof(*x));
 

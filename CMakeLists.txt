@@ -26,7 +26,7 @@ add_executable(tbkp
         src/tbkp_bb_solution.c
         src/tbkp_bb_fixed_status.h
         src/tbkp_bb_defs.h
-        src/tbkp_bb_params.h
+        src/tbkp_params.h
         src/tbkp_dp.h
         src/tbkp_dp.c)
 

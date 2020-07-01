@@ -14,7 +14,7 @@
 
 typedef struct {
     const TBKPInstance* instance;
-    const TBKPBBParams* params;
+    const TBKPParams* params;
     TBKPBBSolution* solution;
     TBKPBBFixedStatus* x;
     TBKPBBStats* stats;
@@ -34,7 +34,7 @@ typedef struct {
  * @param params    Struct containing user-set parameters.
  * @return          A pointer to the solution of the problem.
  */
-TBKPBBSolution* tbkp_branch_and_bound(const TBKPInstance* instance, TBKPBBStats* stats, TBKPBBParams* params);
+TBKPBBSolution* tbkp_branch_and_bound(const TBKPInstance* instance, TBKPBBStats* stats, TBKPParams* params);
 
 float solve_cont(const TBKPInstance *const instance, TBKPBBFixedStatus* xbra, double *xc);
 

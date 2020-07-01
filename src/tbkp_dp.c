@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <inttypes.h>
 
 #define EPS 1e-6f
 
@@ -78,27 +79,39 @@ static float tb_solve_recursive(
     uint_fast32_t d, uint_fast32_t v, uint_fast32_t j,
     const TBKPInstance *const inst, TBKPDPTables* t)
 {
+    printf("\tSeeking TB value for (%" PRIuFAST32 ", %" PRIuFAST32 ", %" PRIuFAST32 ")\n", d, v, j);
+
     const float val = tb_table_get(inst, t, d, v, j);
     if(val != TB_TABLE_UNKNOWN) {
+        printf("\t\tTB value %.3f was memoised\n", val);
         return val;
     }
 
     assert(j > 0u);
 
+    printf("\t\tTB value was not memoised\n");
+
+    printf("\t\tCalculating first TB element recurisvely\n");
     const float first_val = tb_solve_recursive(d, v, j - 1u, inst, t);
 
     float second_val;
     if(d < inst->weights[j] || v < inst->profits[j]) {
+        printf("\t\tSecond TB element is zero\n");
         second_val = 0.0f;
     } else {
+        printf("\t\tCalculating second TB element recursively\n");
         second_val = tb_solve_recursive(
             d - inst->weights[j],
             v - inst->profits[j],
             j - 1u, inst, t) * inst->probabilities[j];
     }
 
+    printf("\tFirst TB element: %.3f, Second TB element: %.3f\n", first_val, second_val);
+
     const float newval = (first_val > second_val) ? first_val : second_val;
     tb_table_set(newval, inst, t, d, v, j);
+
+    printf("\tNew value %.3f stored in the TB table\n", newval);
 
     return newval;
 }
@@ -107,25 +120,37 @@ static uint_fast32_t det_solve_recursive(
     uint_fast32_t d, uint_fast32_t j,
     const TBKPInstance* inst, TBKPDPTables* t)
 {
+    printf("\tSeeking DET value for (%" PRIuFAST32 ", %" PRIuFAST32 ")\n", d, j);
+
     const uint_fast32_t val = det_table_get(inst, t, d, j);
     if(val != DET_TABLE_UNKNOWN) {
+        printf("\t\tDET value %" PRIuFAST32 " was memoised\n", val);
         return val;
     }
 
     assert(j > 0u);
 
+    printf("\t\tDET value was not memoised\n");
+
+    printf("\t\tCalculating first DET element recurisvely\n");
     const uint_fast32_t first_val = det_solve_recursive(d, j - 1u, inst, t);
 
     uint_fast32_t second_val;
     const uint_fast32_t wj = inst->weights[inst->last_tb_item_index + j + 1u];
     if(d < wj) {
+        printf("\t\tSecond DET element is zero\n");
         second_val = 0.0f;
     } else {
+        printf("\t\tCalculating second DET element recursively\n");
         second_val = det_solve_recursive(d - wj, j - 1u, inst, t);
     }
 
+    printf("\tFirst DET element: %" PRIuFAST32 ", Second DET element: %" PRIuFAST32 "\n", first_val, second_val);
+
     const uint_fast32_t newval = (first_val > second_val) ? first_val : second_val;
     det_table_set(newval, inst, t, d, j);
+
+    printf("\tNew value %" PRIuFAST32 " stored in the DET table\n", newval);
 
     return newval;
 }
@@ -154,6 +179,8 @@ float tbkp_dp_solve(const TBKPInstance *const inst) {
 
     for(uint_fast32_t d = 0; d <= inst->capacity; ++d) {
         for(uint_fast32_t v = 0; v <= U; ++v) {
+            printf("Launching DP for d = %" PRIuFAST32 ", v = %" PRIuFAST32 "\n", d, v);
+
             const float tb_sol = tb_solve_fixed(d, v, inst, &t);
             const uint_fast32_t det_sol = det_solve_fixed(inst->capacity - d, inst, &t);
             const float sol = (float)(v + det_sol) * tb_sol;

@@ -5,7 +5,7 @@
 #ifndef TBKP_TBKP_BB_STATS_H
 #define TBKP_TBKP_BB_STATS_H
 
-#include "tbkp_bb_params.h"
+#include "tbkp_params.h"
 #include <stddef.h>
 #include <stdbool.h>
 #include <time.h>
@@ -35,6 +35,6 @@ TBKPBBStats tbkp_stats_init(void);
 void tbkp_stats_print(const TBKPBBStats* stats);
 
 /** Prints the stats to file as a .csv. */
-void tbkp_stats_to_file(const TBKPBBStats* stats, const TBKPBBParams* params);
+void tbkp_stats_to_file(const TBKPBBStats* stats, const TBKPParams* params);
 
 #endif //TBKP_TBKP_BB_STATS_H
