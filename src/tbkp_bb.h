@@ -2,8 +2,8 @@
 // Created by alberto on 19/02/2020.
 //
 
-#ifndef TBKP_TBKP_UB_H
-#define TBKP_TBKP_UB_H
+#ifndef TBKP_TBKP_BB_H
+#define TBKP_TBKP_BB_H
 
 #include "tbkp_instance.h"
 #include "tbkp_bb_solution.h"
@@ -39,4 +39,4 @@ TBKPBBSolution* tbkp_branch_and_bound(const TBKPInstance* instance, TBKPBBStats*
 float solve_cont(const TBKPInstance *const instance, TBKPBBFixedStatus* xbra, double *xc);
 
 
-#endif //TBKP_TBKP_UB_H
+#endif //TBKP_TBKP_BB_H

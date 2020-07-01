@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stddef.h>
+#include <combo.h>
+#include <assert.h>
 
 #define EPS 1e-6f
 
@@ -19,6 +21,30 @@ static int compare_items_by_probs(const void* x, const void* y) {
     const Item* it_x = x;
     const Item* it_y = y;
     return it_x->pi < it_y->pi ? -1 : it_x->pi > it_y->pi;
+}
+
+static uint_fast32_t tb_items_ub(const TBKPInstance *const inst) {
+    cmb_item* cmb_items = malloc(inst->n_tb_items * sizeof(*cmb_items));
+    cmb_stype tot_p = 0;
+    
+    for(size_t i = 0u; i < inst->n_tb_items; ++i) {
+        assert(inst->probabilities[i] < 1.0f - EPS);
+        cmb_items[i] = (cmb_item){
+            .p = (cmb_itype) inst->profits[i],
+            .w = (cmb_itype) inst->weights[i],
+            .x = 0,
+            .pos = i
+        };
+        tot_p += (cmb_stype)inst->profits[i];
+    }
+
+    if(inst->tb_tot_weight <= inst->capacity) {
+        return (uint_fast32_t)tot_p;
+    }
+
+    return (uint_fast32_t)combo(
+        &cmb_items[0], &cmb_items[inst->n_tb_items - 1],
+        (cmb_stype)inst->capacity, 0, INT32_MAX, true, false);
 }
 
 /** Arrange items by increasing probabilities. As a side-effect, all time-bomb
@@ -79,6 +105,8 @@ TBKPInstance* tbkp_instance_read(const char *const filename) {
     instance->probabilities = malloc(instance->n_items * sizeof(*(instance->probabilities)));
     instance->n_tb_items = 0u;
     instance->n_det_items = 0u;
+    instance->tb_tot_weight = 0u;
+    instance->tb_ub_packed_profit = 0u;
 
     if((instance->weights == NULL) || (instance->profits == NULL) || (instance->probabilities == NULL)) {
         printf("Cannot allocate memory for data\n");
@@ -107,8 +135,10 @@ TBKPInstance* tbkp_instance_read(const char *const filename) {
 
         if(items[i].pi < 1.0f - EPS) {
             ++(instance->n_tb_items);
+            instance->tb_tot_weight += items[i].w;
         } else {
             ++(instance->n_det_items);
+            instance->det_tot_weight += items[i].w;
         }
     }
 
@@ -118,6 +148,7 @@ TBKPInstance* tbkp_instance_read(const char *const filename) {
     }
 
     sort_instance_by_increasing_probabilities(instance, items);
+    instance->tb_ub_packed_profit = tb_items_ub(instance);
 
     free(items);
 

@@ -17,6 +17,10 @@ typedef struct {
     uint_fast32_t n_tb_items;
     uint_fast32_t n_det_items;
     uint_fast32_t last_tb_item_index;
+
+    uint_fast32_t tb_tot_weight;
+    uint_fast32_t tb_ub_packed_profit;
+    uint_fast32_t det_tot_weight;
 } TBKPInstance;
 
 TBKPInstance* tbkp_instance_read(const char* filename);

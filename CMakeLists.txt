@@ -19,7 +19,16 @@ add_executable(tbkp
         src/tbkp_boole_sol.h
         src/tbkp_boole_sol.c
         src/tbkp_bb.c
-        src/tbkp_bb.h src/tbkp_bb_stats.h src/tbkp_bb_stats.c src/tbkp_bb_solution.h src/tbkp_bb_solution.c src/tbkp_bb_fixed_status.h src/tbkp_bb_defs.h src/tbkp_bb_params.h)
+        src/tbkp_bb.h
+        src/tbkp_bb_stats.h
+        src/tbkp_bb_stats.c
+        src/tbkp_bb_solution.h
+        src/tbkp_bb_solution.c
+        src/tbkp_bb_fixed_status.h
+        src/tbkp_bb_defs.h
+        src/tbkp_bb_params.h
+        src/tbkp_dp.h
+        src/tbkp_dp.c)
 
 set(WARNING_OPTIONS             -Wall -Wextra -Werror -Wno-missing-field-initializers)
 set(GCC_WARNING_OPTIONS         -Wcast-align -Wconversion -Wmisleading-indentation
