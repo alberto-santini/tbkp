@@ -1,189 +1,235 @@
 #include "tbkp_dp.h"
-#include <combo.h>
 #include <assert.h>
-#include <stdlib.h>
 #include <stdio.h>
-#include <inttypes.h>
 
-#define EPS 1e-6f
-
-static size_t tb_table_index(
-    const TBKPInstance *const inst,
-    uint_fast32_t max_weight,
-    uint_fast32_t min_profit,
-    uint_fast32_t max_item)
-{
+static void tbkp_dp_timebombtable_set_on_active_row(
+    uint_fast32_t d, uint_fast32_t v, float val,
+    TBKPDPTimeBombTable *const tb_t,
+    const TBKPInstance *const inst
+) {
     const uint_fast32_t U = inst->tb_ub_packed_profit;
-    return max_weight * (U + 1u) * inst->n_tb_items +
-           min_profit * inst->n_tb_items +
-           max_item;
+    const size_t index = d * (U + 1u) + v;
+
+    assert(index < (inst->capacity + 1u) * (U + 1u));
+    assert(tb_t->active_row <= 1);
+
+    tb_t->rows[tb_t->active_row][index] = val;
 }
 
-static float tb_table_get(
-    const TBKPInstance *const inst,
-    const TBKPDPTables *const t,
-    uint_fast32_t max_weight,
-    uint_fast32_t min_profit,
-    uint_fast32_t max_item)
-{
-    return t->tb_table[tb_table_index(inst, max_weight, min_profit, max_item)];
+static void tbkp_dp_timebombtable_set_on_new_row(
+    uint_fast32_t d, uint_fast32_t v, float val,
+    TBKPDPTimeBombTable *const tb_t,
+    const TBKPInstance *const inst
+) {
+    const uint_fast32_t U = inst->tb_ub_packed_profit;
+    const size_t index = d * (U + 1u) + v;
+
+    assert(index < (inst->capacity + 1u) * (U + 1u));
+    assert(tb_t->active_row <= 1);
+
+    tb_t->rows[1u - tb_t->active_row][index] = val;
 }
 
-static void tb_table_set(
-    float value,
-    const TBKPInstance *const inst,
-    TBKPDPTables *const t,
-    uint_fast32_t max_weight,
-    uint_fast32_t min_profit,
-    uint_fast32_t max_item)
-{
-    t->tb_table[tb_table_index(inst, max_weight, min_profit, max_item)] = value;
-}
-
-static size_t det_table_index(
-    const TBKPInstance *const inst,
-    uint_fast32_t max_weight,
-    uint_fast32_t max_item)
-{
-    // In the instance deterministic items are indexed from
-    // inst->last_tb_item +1u to inst->n_items - 1u. In the
-    // DP table, however, we index the deterministic items
-    // from 0 to inst->n_det_items - 1u, so we have to convert
-    // the indices.
-    const uint_fast32_t det_item = inst->last_tb_item_index + max_item + 1u;
-
-    return max_weight * inst->n_det_items +
-           det_item;
-}
-
-static uint_fast32_t det_table_get(
-    const TBKPInstance *const inst,
-    const TBKPDPTables *const t,
-    uint_fast32_t max_weight,
-    uint_fast32_t max_item)
-{
-    return t->det_table[det_table_index(inst, max_weight, max_item)];
-}
-
-static void det_table_set(
-    uint_fast32_t value,
-    const TBKPInstance *const inst,
-    TBKPDPTables *const t,
-    uint_fast32_t max_weight,
-    uint_fast32_t max_item)
-{
-    t->det_table[det_table_index(inst, max_weight, max_item)] = value;
-}
-
-static float tb_solve_recursive(
+static float tbkp_dp_timebombtable_get(
     uint_fast32_t d, uint_fast32_t v, uint_fast32_t j,
-    const TBKPInstance *const inst, TBKPDPTables* t)
-{
-    printf("\tSeeking TB value for (%" PRIuFAST32 ", %" PRIuFAST32 ", %" PRIuFAST32 ")\n", d, v, j);
+    const TBKPDPTimeBombTable *const tb_t,
+    const TBKPInstance *const inst
+) {
+    assert(j == tb_t->last_index || j == tb_t->last_index - 1u);
 
-    const float val = tb_table_get(inst, t, d, v, j);
-    if(val != TB_TABLE_UNKNOWN) {
-        printf("\t\tTB value %.3f was memoised\n", val);
-        return val;
-    }
+    const size_t row_idx = (j == tb_t->last_index) ? tb_t->active_row : (1u - tb_t->active_row);
+    const uint_fast32_t U = inst->tb_ub_packed_profit;
+    const size_t index = d * (U + 1u) + v;
 
-    assert(j > 0u);
-
-    printf("\t\tTB value was not memoised\n");
-
-    printf("\t\tCalculating first TB element recurisvely\n");
-    const float first_val = tb_solve_recursive(d, v, j - 1u, inst, t);
-
-    float second_val;
-    if(d < inst->weights[j] || v < inst->profits[j]) {
-        printf("\t\tSecond TB element is zero\n");
-        second_val = 0.0f;
-    } else {
-        printf("\t\tCalculating second TB element recursively\n");
-        second_val = tb_solve_recursive(
-            d - inst->weights[j],
-            v - inst->profits[j],
-            j - 1u, inst, t) * inst->probabilities[j];
-    }
-
-    printf("\tFirst TB element: %.3f, Second TB element: %.3f\n", first_val, second_val);
-
-    const float newval = (first_val > second_val) ? first_val : second_val;
-    tb_table_set(newval, inst, t, d, v, j);
-
-    printf("\tNew value %.3f stored in the TB table\n", newval);
-
-    return newval;
+    return tb_t->rows[row_idx][index];
 }
 
-static uint_fast32_t det_solve_recursive(
+static float tbkp_dp_timebombtable_getopt(
+    uint_fast32_t d, uint_fast32_t v,
+    const TBKPDPTimeBombTable *const tb_t,
+    const TBKPInstance *const inst
+) {
+    return tbkp_dp_timebombtable_get(d, v, inst->n_tb_items - 1u, tb_t, inst);
+}
+
+static void tbkp_dp_timebombtable_compute(
+    TBKPDPTimeBombTable* tb_t,
+    const TBKPInstance *const inst
+) {
+    assert(tb_t->last_index == 0u);
+    const uint_fast32_t c = inst->capacity;
+    const uint_fast32_t U = inst->tb_ub_packed_profit;
+
+    for(uint_fast32_t j = 1u; j <= inst->n_tb_items; ++j) {
+        const uint_fast32_t wj = inst->weights[j];
+        const uint_fast32_t pj = inst->profits[j];
+        const float pij = inst->probabilities[j];
+
+        for(uint_fast32_t d = 0u; d <= c; ++d) {
+            for(uint_fast32_t v = 0u; v <= U; ++v) {
+                const float current_val = tbkp_dp_timebombtable_get(d, v, j - 1u, tb_t, inst);
+
+                if(wj > d || pj > v) {
+                    tbkp_dp_timebombtable_set_on_new_row(d, v, current_val, tb_t, inst);
+                } else {
+                    const float new_val = tbkp_dp_timebombtable_get(d - wj, v - pj, j - 1u, tb_t, inst) * pij;
+
+                    if(new_val > current_val) {
+                        tbkp_dp_timebombtable_set_on_new_row(d, v, new_val, tb_t, inst);
+                    } else {
+                        tbkp_dp_timebombtable_set_on_new_row(d, v, current_val, tb_t, inst);
+                    }
+                }
+            }
+        }
+
+        if(j < inst->n_tb_items) {
+            ++(tb_t->last_index);
+            tb_t->active_row = 1u - tb_t->active_row;
+        }
+    }
+}
+
+static void tbkp_dp_deterministictable_set_raw(
+    uint_fast32_t d, uint_fast32_t j, uint_fast32_t val,
+    TBKPDPDeterministicTable* d_t,
+    const TBKPInstance *const inst
+) {
+    const uint_fast32_t ndet = inst->n_det_items;
+    const size_t index = d * (ndet + 1u) + j;
+
+    assert(index < (inst->capacity + 1u) * (ndet + 1u));
+    
+    d_t->t[index] = val;
+}
+
+static void tbkp_dp_deterministictable_set(
+    uint_fast32_t d, uint_fast32_t j, uint_fast32_t val,
+    TBKPDPDeterministicTable* d_t,
+    const TBKPInstance *const inst
+) {
+    tbkp_dp_deterministictable_set_raw(d, j + 1u, val, d_t, inst);
+}
+
+static uint_fast32_t tbkp_dp_deterministictable_get(
     uint_fast32_t d, uint_fast32_t j,
-    const TBKPInstance* inst, TBKPDPTables* t)
-{
-    printf("\tSeeking DET value for (%" PRIuFAST32 ", %" PRIuFAST32 ")\n", d, j);
+    const TBKPDPDeterministicTable *const d_t,
+    const TBKPInstance *const inst
+) {
+    j = j + 1u;
+    const uint_fast32_t ndet = inst->n_det_items;
+    const size_t index = d * (ndet + 1u) + j;
 
-    const uint_fast32_t val = det_table_get(inst, t, d, j);
-    if(val != DET_TABLE_UNKNOWN) {
-        printf("\t\tDET value %" PRIuFAST32 " was memoised\n", val);
-        return val;
-    }
+    assert(index < (inst->capacity + 1u) * (ndet + 1u));
 
-    assert(j > 0u);
-
-    printf("\t\tDET value was not memoised\n");
-
-    printf("\t\tCalculating first DET element recurisvely\n");
-    const uint_fast32_t first_val = det_solve_recursive(d, j - 1u, inst, t);
-
-    uint_fast32_t second_val;
-    const uint_fast32_t wj = inst->weights[inst->last_tb_item_index + j + 1u];
-    if(d < wj) {
-        printf("\t\tSecond DET element is zero\n");
-        second_val = 0.0f;
-    } else {
-        printf("\t\tCalculating second DET element recursively\n");
-        second_val = det_solve_recursive(d - wj, j - 1u, inst, t);
-    }
-
-    printf("\tFirst DET element: %" PRIuFAST32 ", Second DET element: %" PRIuFAST32 "\n", first_val, second_val);
-
-    const uint_fast32_t newval = (first_val > second_val) ? first_val : second_val;
-    det_table_set(newval, inst, t, d, j);
-
-    printf("\tNew value %" PRIuFAST32 " stored in the DET table\n", newval);
-
-    return newval;
+    return d_t->t[index];
 }
 
-static uint_fast32_t det_solve_fixed(
+static uint_fast32_t tbkp_dp_deterministictable_getopt(
     uint_fast32_t d,
-    const TBKPInstance *const inst,
-    TBKPDPTables* t)
-{
-    return det_solve_recursive(d, inst->n_det_items, inst, t);
+    const TBKPDPDeterministicTable *const d_t,
+    const TBKPInstance *const inst
+) {
+    return tbkp_dp_deterministictable_get(d, inst->n_det_items - 1u, d_t, inst);
 }
 
-static float tb_solve_fixed(
-    uint_fast32_t d,
-    uint_fast32_t v,
-    const TBKPInstance *const inst,
-    TBKPDPTables* t)
-{
-    return tb_solve_recursive(d, v, inst->n_tb_items, inst, t);
+static void tbkp_dp_deterministictable_compute(
+    TBKPDPDeterministicTable* d_t,
+    const TBKPInstance *const inst
+) {
+    for(uint_fast32_t j = 1u; j < inst->n_det_items; ++j) {
+        const uint_fast32_t j_idx = inst->last_tb_item_index + j + 1u;
+        const uint_fast32_t wj = inst->weights[j_idx];
+        const uint_fast32_t pj = inst->profits[j_idx];
+
+        for(uint_fast32_t d = 0u; d <= inst->capacity; ++d) {
+            const uint_fast32_t old_value = tbkp_dp_deterministictable_get(d, j - 1u, d_t, inst);
+            uint_fast32_t new_value = pj;
+
+            if(d >= wj) {
+                new_value += tbkp_dp_deterministictable_get(d - wj, j - 1u, d_t, inst);
+            }
+
+            if(new_value > old_value) {
+                tbkp_dp_deterministictable_set(d, j, new_value, d_t, inst);
+            } else {
+                tbkp_dp_deterministictable_set(d, j, old_value, d_t, inst);
+            }
+        }
+    }
+}
+
+TBKPDPTimeBombTable tbkp_dp_timebombtable_init(const TBKPInstance* inst) {
+    TBKPDPTimeBombTable tb_t;
+    const uint_fast32_t c = inst->capacity;
+    const uint_fast32_t U = inst->tb_ub_packed_profit;
+
+    tb_t.active_row = 0u;
+    tb_t.last_index = 0u;
+    tb_t.rows[0] = calloc((c + 1u) * (U + 1u), sizeof(*(tb_t.rows[0])));
+    tb_t.rows[1] = calloc((c + 1u) * (U + 1u), sizeof(*(tb_t.rows[1])));
+
+    if(!tb_t.rows[0] || !tb_t.rows[1]) {
+        printf("Cannot allocate memory for TB Dynamic Programming table!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    for(uint_fast32_t d = inst->weights[0u]; d <= c; ++d) {
+        tbkp_dp_timebombtable_set_on_active_row(d, inst->profits[0], inst->probabilities[0], &tb_t, inst);
+    }
+
+    return tb_t;
+}
+
+void tbkp_dp_timebombtable_free(TBKPDPTimeBombTable* tb_t) {
+    free(tb_t->rows[0]); tb_t->rows[0] = NULL;
+    free(tb_t->rows[1]); tb_t->rows[1] = NULL;
+}
+
+TBKPDPDeterministicTable tbkp_dp_deterministictable_init(const TBKPInstance *const inst) {
+    TBKPDPDeterministicTable d_t;
+    const uint_fast32_t c = inst->capacity;
+    const uint_fast32_t n = inst->n_det_items;
+
+    d_t.t = calloc((c + 1u) * (n + 1u), sizeof(*(d_t.t)));
+
+    for(uint_fast32_t d = 0u; d <= c; ++d) {
+        tbkp_dp_deterministictable_set_raw(d, 0u, 0u, &d_t, inst);
+    }
+
+    const uint_fast32_t first_det_obj_weight = inst->weights[inst->last_tb_item_index + 1u];
+    const uint_fast32_t first_det_obj_profit = inst->profits[inst->last_tb_item_index + 1u];
+
+    for(uint_fast32_t d = 0u; d < first_det_obj_weight; ++d) {
+        tbkp_dp_deterministictable_set(d, 0u, 0u, &d_t, inst);
+    }
+
+    for(uint_fast32_t d = first_det_obj_weight; d <= c; ++d) {
+        tbkp_dp_deterministictable_set(d, 0u, first_det_obj_profit, &d_t, inst);
+    }
+
+    return d_t;
+}
+
+void tbkp_dp_deterministictable_free(TBKPDPDeterministicTable* d_t) {
+    free(d_t->t); d_t->t = NULL;
 }
 
 float tbkp_dp_solve(const TBKPInstance *const inst) {
     const uint_fast32_t U = inst->tb_ub_packed_profit;
-    TBKPDPTables t = tbkp_dp_tables_init(inst);
+    TBKPDPTimeBombTable tb_t = tbkp_dp_timebombtable_init(inst);
+    TBKPDPDeterministicTable d_t = tbkp_dp_deterministictable_init(inst);
+
+    tbkp_dp_timebombtable_compute(&tb_t, inst);
+    tbkp_dp_deterministictable_compute(&d_t, inst);
+
     float best_sol = -1.0f;
 
     for(uint_fast32_t d = 0; d <= inst->capacity; ++d) {
+        const uint_fast32_t det_sol = tbkp_dp_deterministictable_getopt(d, &d_t, inst);
         for(uint_fast32_t v = 0; v <= U; ++v) {
-            printf("Launching DP for d = %" PRIuFAST32 ", v = %" PRIuFAST32 "\n", d, v);
-
-            const float tb_sol = tb_solve_fixed(d, v, inst, &t);
-            const uint_fast32_t det_sol = det_solve_fixed(inst->capacity - d, inst, &t);
-            const float sol = (float)(v + det_sol) * tb_sol;
+            float sol = ((float)v + (float)det_sol);
+            sol *= tbkp_dp_timebombtable_getopt(d, v, &tb_t, inst);
 
             if(sol > best_sol) {
                 best_sol = sol;
@@ -191,66 +237,8 @@ float tbkp_dp_solve(const TBKPInstance *const inst) {
         }
     }
 
+    tbkp_dp_timebombtable_free(&tb_t);
+    tbkp_dp_deterministictable_free(&d_t);
+
     return best_sol;
-}
-
-TBKPDPTables tbkp_dp_tables_init(const TBKPInstance *const inst) {
-    TBKPDPTables t;
-
-    const size_t tb_table_sz =
-        (inst->capacity + 1u) *
-        (inst->tb_ub_packed_profit + 1u) *
-        inst->n_tb_items;
-
-    t.tb_table = calloc(tb_table_sz, sizeof(*t.tb_table));
-
-    if(!t.tb_table) {
-        printf("Not enough memory for the TB items DP table!\n");
-        exit(EXIT_FAILURE);
-    }
-
-    for(size_t i = 0u; i < tb_table_sz; ++i) {
-        t.tb_table[i] = TB_TABLE_UNKNOWN;
-    }
-
-    for(uint_fast32_t d = 0u; d <= inst->capacity; ++d) {
-        tb_table_set(1.0f, inst, &t, d, 0u, 0u);
-
-        for(uint_fast32_t v = 0u; v <= inst->tb_ub_packed_profit; ++v) {
-            tb_table_set(0.0f, inst, &t, d, v, 0u);
-        }
-    }
-
-    const size_t det_table_sz = (inst->capacity + 1u) * inst->n_det_items;
-
-    t.det_table = calloc(det_table_sz, sizeof(*t.det_table));
-
-    if(!t.det_table) {
-        printf("Not enough memory for the DET items DP table!\n");
-        exit(EXIT_FAILURE);
-    }
-
-    for(size_t i = 0u; i < det_table_sz; ++i) {
-        t.det_table[i] = DET_TABLE_UNKNOWN;
-    }
-
-    for(uint_fast32_t d = 0u; d <= inst->capacity; ++d) {
-        det_table_set(0.0f, inst, &t, d, 0u);
-    }
-
-    for(uint_fast32_t j = 0u; j < inst->n_det_items; ++j) {
-        for(uint_fast32_t d = 0u; d < inst->weights[inst->last_tb_item_index + j + 1u]; ++d) {
-            det_table_set(0.0f, inst, &t, d, j);
-        }
-        for(uint_fast32_t d = inst->weights[inst->last_tb_item_index + j + 1u]; d <= inst->capacity; ++d) {
-            det_table_set(inst->profits[inst->last_tb_item_index + j + 1u], inst, &t, d, j);
-        }
-    }
-
-    return t;
-}
-
-void tbkp_dp_tables_free(TBKPDPTables* t) {
-    free(t->tb_table); t->tb_table = NULL;
-    free(t->det_table); t->det_table = NULL;
 }

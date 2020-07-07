@@ -4,16 +4,21 @@
 #include <stdlib.h>
 #include "tbkp_instance.h"
 
-#define TB_TABLE_UNKNOWN -1.0f
-#define DET_TABLE_UNKNOWN UINT_FAST32_MAX
+typedef struct {
+    float* rows[2];
+    size_t active_row;
+    uint_fast32_t last_index;
+} TBKPDPTimeBombTable;
 
 typedef struct {
-    float* tb_table;
-    uint_fast32_t* det_table;
-} TBKPDPTables;
+    uint_fast32_t* t;
+} TBKPDPDeterministicTable;
 
-TBKPDPTables tbkp_dp_tables_init(const TBKPInstance* inst);
-void tbkp_dp_tables_free(TBKPDPTables* t);
+TBKPDPTimeBombTable tbkp_dp_timebombtable_init(const TBKPInstance* inst);
+void tbkp_dp_timebombtable_free(TBKPDPTimeBombTable* tb_t);
+
+TBKPDPDeterministicTable tbkp_dp_deterministictable_init(const TBKPInstance* inst);
+void tbkp_dp_deterministictable_free(TBKPDPDeterministicTable* d_t);
 
 float tbkp_dp_solve(const TBKPInstance *const inst);
 
