@@ -14,6 +14,7 @@ GRBenv* grb_env = NULL;
 TBKPParams parse_arguments(int argc, const char** argv) {
     TBKPParams p = {
             .solver = "bb",
+            ///.solver = "dp",
             .instance_file = NULL,
             .output_file = NULL,
             .timeout = 3600.0f,
@@ -65,10 +66,26 @@ TBKPParams parse_arguments(int argc, const char** argv) {
     return p;
 }
 
+
+
+#define MAIN_VERBOSITY   1
+#define VERBOSITY_DEBUG  10
+
 int main(int argc, const char** argv) {
     TBKPParams p = parse_arguments(argc, argv);
     TBKPInstance* instance = tbkp_instance_read(p.instance_file);
 
+    if(MAIN_VERBOSITY >= VERBOSITY_DEBUG) {
+	printf("number of items %d\n", instance->n_items);
+	for ( uint_fast32_t i = 0; i < instance->n_items; i++ ) 
+	{
+		printf("Item %2d: ", (int) i);
+		printf("profit %4d, ", instance->profits[i]);
+		printf("weight %4d, ", instance->weights[i]);
+		printf("probab %6.4lf\n", instance->probabilities[i]);
+	}
+	printf("knapsack capacity %d\n\n", instance->capacity);
+    }
     if(strcmp(p.solver, "bb") == 0) {
         TBKPBBStats stats = tbkp_stats_init();
         int error = GRBloadenv(&grb_env, NULL);
@@ -92,6 +109,8 @@ int main(int argc, const char** argv) {
         
         TBKPBBSolution* bbsol = tbkp_branch_and_bound(instance, &stats, &p);
         tbkp_stats_to_file(&stats, &p);
+
+	printf("\n\nBB solution: %.3f\n", bbsol->value);
 
         // Clean up
         tbkp_sol_free(&bbsol);
