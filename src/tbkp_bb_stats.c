@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <float.h>
 
-TBKPBBStats tbkp_stats_init(void) {
+TBKPBBStats tbkp_bb_stats_init(void) {
     return (TBKPBBStats) {
             .start_time = clock(),
             .end_time = 0,
@@ -28,13 +28,13 @@ TBKPBBStats tbkp_stats_init(void) {
     };
 }
 
-void tbkp_stats_print(const TBKPBBStats *const stats) {
+void tbkp_bb_stats_print(const TBKPBBStats *const stats) {
     printf("UB: %.3f; LB: %.3f; Gap: %.3f%%\n", stats->ub, stats->lb, stats->gap * 100.0f);
     printf("Elapsed time: %.3f seconds\n", stats->elapsed_time);
     printf("Explored %zu B&B nodes\n", stats->n_nodes);
 }
 
-void tbkp_stats_to_file(
+void tbkp_bb_stats_to_file(
         const TBKPBBStats *const stats,
         const TBKPParams *const params)
 {

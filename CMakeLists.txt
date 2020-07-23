@@ -28,7 +28,9 @@ add_executable(tbkp
         src/tbkp_bb_defs.h
         src/tbkp_params.h
         src/tbkp_dp.h
-        src/tbkp_dp.c)
+        src/tbkp_dp.c
+        src/tbkp_dp_stats.h
+        src/tbkp_dp_stats.c)
 
 set(WARNING_OPTIONS             -Wall -Wextra -Werror -Wno-missing-field-initializers)
 set(GCC_WARNING_OPTIONS         -Wcast-align -Wconversion -Wmisleading-indentation

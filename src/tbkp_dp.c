@@ -1,6 +1,7 @@
 #include "tbkp_dp.h"
 #include <assert.h>
 #include <stdio.h>
+#include <time.h>
 
 static void tbkp_dp_timebombtable_set_on_active_row(
     uint_fast32_t d, uint_fast32_t v, float val,
@@ -66,7 +67,8 @@ static void tbkp_dp_timebombtable_compute(
         const float pij = inst->probabilities[j];
 
         for(uint_fast32_t dd = 0u; dd <= c; ++dd) {
-		uint_fast32_t d = c - dd; //Alberto4
+		    const uint_fast32_t d = c - dd;
+
             for(uint_fast32_t v = 0u; v <= U; ++v) {
                 const float current_val = tbkp_dp_timebombtable_get(d, v, j - 1u, tb_t, inst);
 
@@ -145,13 +147,12 @@ static void tbkp_dp_deterministictable_compute(
         const uint_fast32_t pj = inst->profits[j_idx];
 
         for(uint_fast32_t dd = 0u; dd <= inst->capacity; ++dd) {
-		uint_fast32_t d = inst->capacity - dd; //Alberto3
+		    const uint_fast32_t d = inst->capacity - dd;
             const uint_fast32_t old_value = tbkp_dp_deterministictable_get(d, j - 1u, d_t, inst);
-            uint_fast32_t new_value = 0; //Alberto2
+            uint_fast32_t new_value = 0;
 
             if(d >= wj) {
                 new_value = pj + tbkp_dp_deterministictable_get(d - wj, j - 1u, d_t, inst);
-		//Alberto2
             }
 
             if(new_value > old_value) {
@@ -178,7 +179,6 @@ TBKPDPTimeBombTable tbkp_dp_timebombtable_init(const TBKPInstance* inst) {
         exit(EXIT_FAILURE);
     }
 
-//Alberto1
     for(uint_fast32_t d = 0; d <= c; ++d) {
         tbkp_dp_timebombtable_set_on_active_row(d, 0, 1.0, &tb_t, inst);
     }
@@ -224,10 +224,12 @@ void tbkp_dp_deterministictable_free(TBKPDPDeterministicTable* d_t) {
     free(d_t->t); d_t->t = NULL;
 }
 
-float tbkp_dp_solve(const TBKPInstance *const inst) {
+float tbkp_dp_solve(const TBKPInstance *const inst, TBKPDPStats* stats) {
     const uint_fast32_t U = inst->tb_ub_packed_profit;
     TBKPDPTimeBombTable tb_t = tbkp_dp_timebombtable_init(inst);
     TBKPDPDeterministicTable d_t = tbkp_dp_deterministictable_init(inst);
+
+    const clock_t start_time = clock();
 
     tbkp_dp_timebombtable_compute(&tb_t, inst);
     tbkp_dp_deterministictable_compute(&d_t, inst);
@@ -235,8 +237,8 @@ float tbkp_dp_solve(const TBKPInstance *const inst) {
     float best_sol = -1.0f;
 
     for(uint_fast32_t d = 0; d <= inst->capacity; ++d) {
-        const uint_fast32_t det_sol = tbkp_dp_deterministictable_getopt(inst->capacity-d, &d_t, inst); //Alberto5
-        /////const uint_fast32_t det_sol = tbkp_dp_deterministictable_getopt(d, &d_t, inst);
+        const uint_fast32_t det_sol = tbkp_dp_deterministictable_getopt(inst->capacity - d, &d_t, inst);
+
         for(uint_fast32_t v = 0; v <= U; ++v) {
             float sol = ((float)v + (float)det_sol);
             sol *= tbkp_dp_timebombtable_getopt(d, v, &tb_t, inst);
@@ -246,6 +248,9 @@ float tbkp_dp_solve(const TBKPInstance *const inst) {
             }
         }
     }
+
+    const clock_t end_time = clock();
+    stats->elapsed_time = (float)(end_time - start_time) / CLOCKS_PER_SEC;
 
     tbkp_dp_timebombtable_free(&tb_t);
     tbkp_dp_deterministictable_free(&d_t);

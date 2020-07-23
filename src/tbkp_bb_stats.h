@@ -29,12 +29,12 @@ typedef struct {
 } TBKPBBStats;
 
 /** Initialises an empty statistics object. */
-TBKPBBStats tbkp_stats_init(void);
+TBKPBBStats tbkp_bb_stats_init(void);
 
 /** Prints a summary of the statistics to stdout. */
-void tbkp_stats_print(const TBKPBBStats* stats);
+void tbkp_bb_stats_print(const TBKPBBStats* stats);
 
 /** Prints the stats to file as a .csv. */
-void tbkp_stats_to_file(const TBKPBBStats* stats, const TBKPParams* params);
+void tbkp_bb_stats_to_file(const TBKPBBStats* stats, const TBKPParams* params);
 
 #endif //TBKP_TBKP_BB_STATS_H
