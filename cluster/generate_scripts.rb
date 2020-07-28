@@ -15,7 +15,7 @@ S = <<~EOF
     #SBATCH --mem-per-cpu=#{MEM}
 EOF
 
-def create_script(instance, early_combo, use_de, use_boole, boole_freq)
+def create_script(instance, early_combo, use_de, use_boole, boole_freq, all_bounds=false)
     instance = File.join(
         '/homes/users/asantini/local/src/tbkp/data/generated-instances',
         File.basename(instance)
@@ -35,6 +35,7 @@ def create_script(instance, early_combo, use_de, use_boole, boole_freq)
     params += " -d 1" if use_de
     params += " -b 1 -f #{boole_freq}" if use_boole
     params += " -c 1" if early_combo
+    params += " -a 1" if all_bounds
 
     script = <<~EOF
         #{S.strip}
@@ -62,6 +63,14 @@ def create_all_scripts
     end
 end
 
+def create_bound_check_scripts
+    Dir.glob('../data/generated-instances/*.txt') do |instance|
+        create_script(instance, true, true, true, 100, true)
+    end
+end
+
 FileUtils.mkdir_p('scripts')
 FileUtils.mkdir_p('output')
-create_all_scripts
+
+# create_all_scripts
+create_bound_check_scripts
