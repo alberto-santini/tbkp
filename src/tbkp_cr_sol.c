@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
+#include <assert.h>
 
 #define EPSC 1e-6
 
@@ -207,11 +208,11 @@ TBKPContinuousRelaxationSol tbkp_crsol_get(
 	for(size_t i = 0u; i < n; ++i) {	
 		if((xc[i] > EPSC) && (xc[i] < 1.0f - EPSC)) {
 			integer_sol = false;
-			
-            if(xc[i] < 1.0f - EPSC) {
-                ++n_items;
-            }
 		}
+
+        if(xc[i] > 1.0f - EPSC) {
+            ++n_items;
+        }
 	}
 
     size_t* items = NULL;
@@ -222,6 +223,7 @@ TBKPContinuousRelaxationSol tbkp_crsol_get(
         size_t id = 0u;
         for(size_t i = 0u; i < n; ++i) {
             if(xc[i] > 1.0f - EPSC) {
+                assert(id < n_items);
                 items[id++] = i;
             }
         }
