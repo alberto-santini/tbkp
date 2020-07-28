@@ -39,12 +39,17 @@ static uint_fast32_t tb_items_ub(const TBKPInstance *const inst) {
     }
 
     if(inst->tb_tot_weight <= inst->capacity) {
+        free(cmb_items);
         return (uint_fast32_t)tot_p;
     }
 
-    return (uint_fast32_t)combo(
+    uint_fast32_t sol = (uint_fast32_t) combo(
         &cmb_items[0], &cmb_items[inst->n_tb_items - 1],
         (cmb_stype)inst->capacity, 0, INT32_MAX, true, false);
+
+    free(cmb_items);
+
+    return sol;
 }
 
 /** Arrange items by increasing probabilities. As a side-effect, all time-bomb
