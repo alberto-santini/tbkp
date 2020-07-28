@@ -20,9 +20,12 @@ TBKPDeterministicEqSol tbkp_desol_get(
     // Multiplier we need because COMBO only takes integer profits!
     const float cmb_multiplier = 10000.0f;
 
-    // AS: Michele, è corretto (e consigliato). Guarda qua:
-    // https://stackoverflow.com/questions/17258647/why-is-it-safer-to-use-sizeofpointer-in-malloc
     cmb_item* cmb_items = malloc(n_items * sizeof(*cmb_items));
+
+    if(!cmb_items) {
+        printf("Cannot allocate memory for combo items in tbkp_desol_get!\n");
+        exit(EXIT_FAILURE);
+    }
 
     cmb_stype sumw = 0;
     cmb_stype sump = 0;
