@@ -22,11 +22,12 @@ TBKPParams parse_arguments(int argc, const char** argv) {
             .use_de_bounds = false,
             .use_boole_bound = false,
             .use_early_combo = false,
+            .use_all_bounds_at_root = false,
             .max_nodes = 0
     };
 
     // I think we need this because argparse's OPT_BOOLEAN has a bug.
-    int early_combo = 0, cont_relax = 0, de_bounds = 0, boole_bound = 0;
+    int early_combo = 0, cont_relax = 0, de_bounds = 0, boole_bound = 0, all_bounds = 0;
 
     static const char *const usage[] = {
             "tbkp [options]",
@@ -44,6 +45,7 @@ TBKPParams parse_arguments(int argc, const char** argv) {
         OPT_INTEGER('d', "debounds", &de_bounds, "1 if we use the DE bounds"),
         OPT_INTEGER('b', "boolebound", &boole_bound, "1 if we use the Boole bound"),
         OPT_INTEGER('f', "boolefreq", &p.boole_bound_frequency, "freequency at which to use the Boole bound"),
+        OPT_INTEGER('a', "allbounds", &all_bounds, "1 if using all bounds at the root node, no matter what the other options are"),
         OPT_INTEGER('n', "maxnodes", &p.max_nodes, "Number of branch-and-bound nodes to be explored (1 for root node only, 0 for no limit)"),
         OPT_END()
     };
@@ -56,6 +58,7 @@ TBKPParams parse_arguments(int argc, const char** argv) {
     p.use_cr_bound = (cont_relax == 1);
     p.use_de_bounds = (de_bounds == 1);
     p.use_boole_bound = (boole_bound == 1);
+    p.use_all_bounds_at_root = (all_bounds == 1);
 
     if(!p.instance_file) {
         printf("You have to specify an instance file!\n");
@@ -90,11 +93,12 @@ int main(int argc, const char** argv) {
             exit(EXIT_FAILURE);
         }
         
-        const TBKPBBSolution *const sol = tbkp_branch_and_bound(instance, &stats, &p);
+        TBKPBBSolution* sol = tbkp_branch_and_bound(instance, &stats, &p);
         printf("Branch and bound. Solution: %.2f\n", sol->value);
         tbkp_bb_stats_to_file(&stats, &p);
 
         GRBfreeenv(grb_env);
+        tbkp_sol_free(&sol);
     } else if(strcmp(p.solver, "dp") == 0) {
         TBKPDPStats stats;
         

@@ -670,10 +670,11 @@ static void tbkp_bb_solve_node(
 
     float new_ub = FLT_MAX;
     float new_lb = 0.0f;
+    _Bool use_all_bounds = status->params->use_all_bounds_at_root && (current_node == 1u);
 
     /** START COMPUTATION OF NEW UBs AND/OR LBs AT THIS NODE. **/
 
-    if(status->params->use_cr_bound) {
+    if(status->params->use_cr_bound || use_all_bounds) {
         CRBound cr_bound = get_cr_bound(status, current_node);
 
         if(cr_bound.local_ub < new_ub - EPS) {
@@ -686,7 +687,9 @@ static void tbkp_bb_solve_node(
             new_lb = cr_bound.local_ub;
         }
 
-        if(cr_bound.should_prune) {
+        // Do not prune early if using all bounds, otherwise we cannot compute
+        // the other bounds.
+        if(cr_bound.should_prune && !use_all_bounds) {
             if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
                 printf("[NODE %zu] Pruning node thanks to CR bound\n", current_node);
             }
@@ -695,7 +698,7 @@ static void tbkp_bb_solve_node(
         }
     }
 
-	if(status->params->use_de_bounds) {
+	if(status->params->use_de_bounds || use_all_bounds) {
 		DEBounds de_bounds = get_de_bounds(status, &residual, current_node, items, n_unfixed_items);
 
         if(de_bounds.local_ub < new_ub - EPS) {
@@ -708,7 +711,9 @@ static void tbkp_bb_solve_node(
             new_lb = de_bounds.local_lb;
         }
 
-		if(de_bounds.should_prune) {
+        // Do not prune early if using all bounds, otherwise we cannot compute
+        // the other bounds.
+		if(de_bounds.should_prune && !use_all_bounds) {
 			if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
 				printf("[NODE %zu] Pruning node thanks to DE bounds\n", current_node);
 			}
@@ -717,7 +722,7 @@ static void tbkp_bb_solve_node(
 		}
 	}
 
-	if(status->params->use_boole_bound && current_node % status->params->boole_bound_frequency == 1u) {
+	if((status->params->use_boole_bound && current_node % status->params->boole_bound_frequency == 1u) || use_all_bounds) {
 		float boole_lb = get_boole_bound(status, &residual, current_node, items, n_unfixed_items);
 
 		if(boole_lb > new_lb) {
@@ -726,7 +731,7 @@ static void tbkp_bb_solve_node(
 		}
 	}
 
-    if(status->params->use_early_combo && early_combo) {
+    if((status->params->use_early_combo || use_all_bounds) && early_combo) {
 		// It's smarter to solve the deterministic 01KP early, with the TB items fixed until now. When
 		// branching on zero, we don't need to recompute this, because we inherit from the parent node.
 		// We only need to call combo again on the 1 branches.

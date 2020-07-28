@@ -19,6 +19,7 @@ typedef struct {
     _Bool use_de_bounds;
     _Bool use_boole_bound;
     _Bool use_early_combo;
+    _Bool use_all_bounds_at_root;
     size_t max_nodes;
 } TBKPParams;
 
