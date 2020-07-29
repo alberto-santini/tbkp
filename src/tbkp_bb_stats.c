@@ -51,15 +51,15 @@ void tbkp_bb_stats_to_file(
 
     fprintf(f, "early_combo,max_nodes,ub,lb,gap,time_s,n_nodes");
 
-    if(params->use_cr_bound) {
+    if(params->use_cr_bound || params->use_all_bounds_at_root) {
         fprintf(f, ",cr_ub_root,cr_time_root");
     }
 
-    if(params->use_de_bounds) {
+    if(params->use_de_bounds || params->use_all_bounds_at_root) {
         fprintf(f, ",de_ub_root,de_lb_root,de_time_root");
     }
 
-    if(params->use_boole_bound) {
+    if(params->use_boole_bound || params->use_all_bounds_at_root) {
         fprintf(f, ",boole_lb_root,boole_time_root,boole_freq");
     }
 
@@ -68,15 +68,15 @@ void tbkp_bb_stats_to_file(
     fprintf(f, "%d,%zu,%.3f,%.3f,%.3f,%.3f,%zu",
             params->use_early_combo, params->max_nodes, stats->ub, stats->lb, stats->gap * 100.0f, stats->elapsed_time, stats->n_nodes);
 
-    if(params->use_cr_bound) {
+    if(params->use_cr_bound || params->use_all_bounds_at_root) {
         fprintf(f, ",%.3f,%.3f", stats->cr_ub_at_root, stats->time_to_compute_cr_at_root);
     }
 
-    if(params->use_de_bounds) {
+    if(params->use_de_bounds || params->use_all_bounds_at_root) {
         fprintf(f, ",%.3f,%.3f,%.3f", stats->de_ub_at_root, stats->de_lb_at_root, stats->time_to_compute_de_at_root);
     }
 
-    if(params->use_boole_bound) {
+    if(params->use_boole_bound || params->use_all_bounds_at_root) {
         fprintf(f, ",%.3f,%.3f,%zu",
                 stats->boole_lb_at_root, stats->time_to_compute_boole_at_root, params->boole_bound_frequency);
     }
