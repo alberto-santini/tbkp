@@ -15,7 +15,7 @@ S = <<~EOF
     #SBATCH --mem-per-cpu=#{MEM}
 EOF
 
-def create_script(instance, early_combo, use_de, use_boole, boole_freq, all_bounds=false)
+def create_script(instance, early_combo, use_de, use_boole, boole_freq, use_cr, all_bounds=false)
     instance = File.join(
         '/homes/users/asantini/local/src/tbkp/data/generated-instances',
         File.basename(instance)
@@ -24,6 +24,7 @@ def create_script(instance, early_combo, use_de, use_boole, boole_freq, all_boun
     b = File.basename(instance, '.txt')
     b += "-d" if use_de
     b += "-b#{boole_freq}" if use_boole
+    b ++ "-r" if use_cr
     b += "-c" if early_combo
 
     script_f = File.join('scripts', "launch-#{b}.sh")
@@ -35,6 +36,7 @@ def create_script(instance, early_combo, use_de, use_boole, boole_freq, all_boun
     params += " -d 1" if use_de
     params += " -b 1 -f #{boole_freq}" if use_boole
     params += " -c 1" if early_combo
+    params += " -r 1" if use_cr
     params += " -a 1" if all_bounds
 
     script = <<~EOF
@@ -54,9 +56,11 @@ def create_all_scripts
         [true, false].each do |use_de|
             [true, false].each do |use_boole|
                 next if use_boole && !use_de # Doesn't make sense
-                [true, false].each do |early_combo|
-                    create_script(instance, early_combo, use_de, use_boole, 1)
-                    create_script(instance, early_combo, use_de, use_boole, 100) if use_boole
+                [true, false].each do |use_cr|
+                    [true, false].each do |early_combo|
+                        create_script(instance, early_combo, use_de, use_boole, 1, use_cr)
+                        create_script(instance, early_combo, use_de, use_boole, 100, use_cr) if use_boole
+                    end
                 end
             end
         end
@@ -65,7 +69,7 @@ end
 
 def create_bound_check_scripts
     Dir.glob('../data/generated-instances/*.txt') do |instance|
-        create_script(instance, true, true, true, 100, true)
+        create_script(instance, true, true, true, 100, true, true)
     end
 end
 
