@@ -76,11 +76,6 @@ int main(int argc, const char** argv) {
         TBKPBBStats stats = tbkp_bb_stats_init();
         int error = GRBloadenv(&grb_env, NULL);
 
-        if(!p.use_de_bounds) {
-            printf("Error: must use DE bounds.\n");
-            exit(EXIT_FAILURE);
-        }
-
         if(error) {
             printf("Gurobi loadenv error: %d\n", error);
             exit(EXIT_FAILURE);
