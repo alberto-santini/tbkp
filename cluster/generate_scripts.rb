@@ -73,8 +73,24 @@ def create_bound_check_scripts
     end
 end
 
+def create_comp_exp_scripts
+    Dir.glob('../data/generated-instances/*.txt') do |instance|
+        # Versione con early combo, z2upper (rilassamento continuo) e z2lower (boole):
+        create_script(instance, true, false, true, 1, true)
+        # Versione con early combo, z1upper (deterministic eq) e z1lower (deterministic eq ricalcolato esatto):
+        create_script(instance, true, true, false, 0, false)
+        # Versione con early combo, z1upper+z1lower (deterministic eq) e z2upper (rilassamento continuo):
+        create_script(instance, true, true, false, 0, true)
+        # Versione con early combo e tutti i bound
+        create_script(instance, true, true, true, 1, true)
+        # Versione con early combo e tutti i bound, ma z2lower (boole) ogni 50 nodi:
+        create_script(instance, true, true, true, 50, true)
+    end
+end
+
 FileUtils.mkdir_p('scripts')
 FileUtils.mkdir_p('output')
 
 # create_all_scripts
-create_bound_check_scripts
+# create_bound_check_scripts
+create_comp_exp_scripts
