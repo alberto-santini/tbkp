@@ -24,7 +24,7 @@ def create_script(instance, early_combo, use_de, use_boole, boole_freq, use_cr, 
     b = File.basename(instance, '.txt')
     b += "-d" if use_de
     b += "-b#{boole_freq}" if use_boole
-    b ++ "-r" if use_cr
+    b += "-r" if use_cr
     b += "-c" if early_combo
 
     script_f = File.join('scripts', "launch-#{b}.sh")
