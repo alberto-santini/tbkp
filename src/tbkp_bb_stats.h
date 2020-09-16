@@ -15,16 +15,28 @@ typedef struct {
     clock_t start_time;
     clock_t end_time;
     float elapsed_time;
+
     float ub; /* Starts at value -1.0f */
     float lb;
     float gap;
+
     float boole_lb_at_root;
     float de_lb_at_root;
     float de_ub_at_root;
     float cr_ub_at_root;
+
     float time_to_compute_boole_at_root;
     float time_to_compute_de_at_root;
     float time_to_compute_cr_at_root;
+
+    float tot_time_boole;
+    float tot_time_de;
+    float tot_time_cr;
+
+    size_t n_boole_called;
+    size_t n_de_called;
+    size_t n_cr_called;
+
     size_t n_nodes;
 } TBKPBBStats;
 

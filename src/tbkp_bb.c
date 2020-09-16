@@ -290,6 +290,9 @@ static CRBound get_cr_bound(
     // Compute the continuous relaxation bound
 	TBKPContinuousRelaxationSol crsol = tbkp_crsol_get(status->instance, status->x);
 
+    ++(status->stats->n_cr_called);
+    status->stats->tot_time_cr += crsol.time_to_compute;
+
 	if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
 	    printf("\t\tUB (continuous relaxation): %f (vs %f)\n", crsol.ub, status->solution->value);
 	}
@@ -346,6 +349,9 @@ static DEBounds get_de_bounds(
 ) {
 	// Solve the deterministic relaxation
 	TBKPDeterministicEqSol desol = tbkp_desol_get(status->instance, n_unfixed_items, items, residual->res_capacity);
+
+    ++(status->stats->n_de_called);
+    status->stats->tot_time_de += desol.time_to_compute;
 
 	// Compute the local upper bound and possibly kill the node
 	float local_ub = ((float)residual->sum_profits + desol.ub) * residual->prod_probabilities;
@@ -418,6 +424,9 @@ float get_boole_bound(
 ) {
     TBKPBooleSol boolesol = tbkp_boolesol_lin_gurobi_get(
             status->instance , n_unfixed_items, items, residual->res_capacity);
+    
+    ++(status->stats->n_boole_called);
+    status->stats->tot_time_boole += boolesol.time_to_compute;
 
     float local_lb = (float) (boolesol.lb_sum_profits + residual->sum_profits) *
                      (boolesol.lb_product_probabilities * residual->prod_probabilities);
