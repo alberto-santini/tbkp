@@ -15,7 +15,7 @@ S = <<~EOF
     #SBATCH --mem-per-cpu=#{MEM}
 EOF
 
-def create_script(instance, early_combo, use_de, use_boole, boole_freq, use_cr, all_bounds=false, max_nodes=0)
+def create_script(instance, early_combo:, use_de:, use_boole:, boole_freq:, use_cr:, all_bounds: false, max_nodes: 0)
     instance = File.join(
         '/homes/users/asantini/local/src/tbkp/data/generated-instances',
         File.basename(instance)
