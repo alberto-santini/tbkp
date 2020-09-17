@@ -731,7 +731,8 @@ static void tbkp_bb_solve_node(
 		}
 	}
 
-	if((status->params->use_boole_bound && current_node % status->params->boole_bound_frequency == 0u) || use_all_bounds) {
+    assert(current_node >= 1u);
+	if((status->params->use_boole_bound && (current_node - 1u) % status->params->boole_bound_frequency == 0u) || use_all_bounds) {
 		float boole_lb = get_boole_bound(status, &residual, current_node, items, n_unfixed_items);
 
 		if(boole_lb > new_lb) {
