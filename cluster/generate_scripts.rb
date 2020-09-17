@@ -1,6 +1,6 @@
 require 'fileutils'
 
-MEM = (ARGV[0] == 'mem' ? '8GB' : '4GB')
+MEM = (ARGV[0] == 'mem' ? '16GB' : '8GB')
 
 L = "/homes/users/asantini/local/lib:/homes/users/asantini/local/lib64"
 G = "/homes/users/asantini/.gurobi/$HOSTNAME/gurobi.lic"
@@ -15,7 +15,7 @@ S = <<~EOF
     #SBATCH --mem-per-cpu=#{MEM}
 EOF
 
-def create_script(instance, early_combo, use_de, use_boole, boole_freq, use_cr, all_bounds=false)
+def create_script(instance, early_combo, use_de, use_boole, boole_freq, use_cr, all_bounds=false, max_nodes=0)
     instance = File.join(
         '/homes/users/asantini/local/src/tbkp/data/generated-instances',
         File.basename(instance)
@@ -38,6 +38,7 @@ def create_script(instance, early_combo, use_de, use_boole, boole_freq, use_cr, 
     params += " -c 1" if early_combo
     params += " -r 1" if use_cr
     params += " -a 1" if all_bounds
+    params += " -n #{max_nodes}"
 
     script = <<~EOF
         #{S.strip}
@@ -45,52 +46,19 @@ def create_script(instance, early_combo, use_de, use_boole, boole_freq, use_cr, 
         #SBATCH -e #{error_f}
 
         module load Gurobi/9.0.0-lic
-        LD_LIBRARY_PATH=#{L} GRB_LICENSE_FILE=#{G} #{E} -i #{instance} -o #{results_f} -t 3600#{params}
+        LD_LIBRARY_PATH=#{L} #{E} -i #{instance} -o #{results_f} -t 3600#{params}
     EOF
 
     File.write(script_f, script)
 end
 
-def create_all_scripts
+def create_boole_root_bound_scripts
     Dir.glob('../data/generated-instances/*.txt') do |instance|
-        [true, false].each do |use_de|
-            [true, false].each do |use_boole|
-                next if use_boole && !use_de # Doesn't make sense
-                [true, false].each do |use_cr|
-                    [true, false].each do |early_combo|
-                        create_script(instance, early_combo, use_de, use_boole, 1, use_cr)
-                        create_script(instance, early_combo, use_de, use_boole, 100, use_cr) if use_boole
-                    end
-                end
-            end
-        end
-    end
-end
-
-def create_bound_check_scripts
-    Dir.glob('../data/generated-instances/*.txt') do |instance|
-        create_script(instance, true, true, true, 100, true, true)
-    end
-end
-
-def create_comp_exp_scripts
-    Dir.glob('../data/generated-instances/*.txt') do |instance|
-        # Versione con early combo, z2upper (rilassamento continuo) e z2lower (boole):
-        create_script(instance, true, false, true, 1, true)
-        # Versione con early combo, z1upper (deterministic eq) e z1lower (deterministic eq ricalcolato esatto):
-        create_script(instance, true, true, false, 0, false)
-        # Versione con early combo, z1upper+z1lower (deterministic eq) e z2upper (rilassamento continuo):
-        create_script(instance, true, true, false, 0, true)
-        # Versione con early combo e tutti i bound
-        create_script(instance, true, true, true, 1, true)
-        # Versione con early combo e tutti i bound, ma z2lower (boole) ogni 50 nodi:
-        create_script(instance, true, true, true, 50, true)
+        create_script instance, early_combo: true, use_de: false, use_boole: true, boole_freq: 1, use_cr: false, all_bounds: false, max_nodes: 1
     end
 end
 
 FileUtils.mkdir_p('scripts')
 FileUtils.mkdir_p('output')
 
-# create_all_scripts
-# create_bound_check_scripts
-create_comp_exp_scripts
+create_boole_root_bound_scripts
