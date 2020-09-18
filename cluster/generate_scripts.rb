@@ -59,16 +59,18 @@ def create_boole_root_bound_scripts
 end
 
 def create_bb_eval_scripts
-    # First configuration: enumeration
-    # create_script instance, early_combo: true, use_de: false, use_boole: false, boole_freq: 0, use_cr: false
-    # Second configuration: DEbounds (z1lower + d1upper)
-    # create_script instance, early_combo: true, use_de: true, use_boole: false, boole_freq: 0, use_cr: false
-    # Third configuration: all bounds, i.e., DEbounds (z1lower + z1upper), BOOLEbound (z2lower), CRbound (z2upper)
-    create_script instance, early_combo: true, use_de: true, use_boole: true, boole_freq: 1, use_cr: true
-    # Fourth configuration: DEbounds (z1lower + d1upper) + BOOLEbound (z2lower)
-    create_script instance, early_combo: true, use_de: true, use_boole: true, boole_freq: 1, use_cr: false
-    # Fifth configuration: DEbounds (z1lower + d1upper) + CRbound (z2upper)
-    create_script instance, early_combo: true, use_de: true, use_boole: false, boole_freq: 0, use_cr: true
+    Dir.glob('../data/generated-instances/*.txt') do |instance|
+        # First configuration: enumeration
+        # create_script instance, early_combo: true, use_de: false, use_boole: false, boole_freq: 0, use_cr: false
+        # Second configuration: DEbounds (z1lower + d1upper)
+        # create_script instance, early_combo: true, use_de: true, use_boole: false, boole_freq: 0, use_cr: false
+        # Third configuration: all bounds, i.e., DEbounds (z1lower + z1upper), BOOLEbound (z2lower), CRbound (z2upper)
+        create_script instance, early_combo: true, use_de: true, use_boole: true, boole_freq: 1, use_cr: true
+        # Fourth configuration: DEbounds (z1lower + d1upper) + BOOLEbound (z2lower)
+        create_script instance, early_combo: true, use_de: true, use_boole: true, boole_freq: 1, use_cr: false
+        # Fifth configuration: DEbounds (z1lower + d1upper) + CRbound (z2upper)
+        create_script instance, early_combo: true, use_de: true, use_boole: false, boole_freq: 0, use_cr: true
+    end
 end
 
 FileUtils.mkdir_p('scripts')
