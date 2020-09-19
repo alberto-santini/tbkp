@@ -65,11 +65,13 @@ def create_bb_eval_scripts
         # Second configuration: DEbounds (z1lower + d1upper)
         # create_script instance, early_combo: true, use_de: true, use_boole: false, boole_freq: 0, use_cr: false
         # Third configuration: all bounds, i.e., DEbounds (z1lower + z1upper), BOOLEbound (z2lower), CRbound (z2upper)
-        create_script instance, early_combo: true, use_de: true, use_boole: true, boole_freq: 1, use_cr: true
+        # create_script instance, early_combo: true, use_de: true, use_boole: true, boole_freq: 1, use_cr: true
         # Fourth configuration: DEbounds (z1lower + d1upper) + BOOLEbound (z2lower)
-        create_script instance, early_combo: true, use_de: true, use_boole: true, boole_freq: 1, use_cr: false
+        # create_script instance, early_combo: true, use_de: true, use_boole: true, boole_freq: 1, use_cr: false
         # Fifth configuration: DEbounds (z1lower + d1upper) + CRbound (z2upper)
-        create_script instance, early_combo: true, use_de: true, use_boole: false, boole_freq: 0, use_cr: true
+        # create_script instance, early_combo: true, use_de: true, use_boole: false, boole_freq: 0, use_cr: true
+        # Sixth configuration: DEbounds (z1lower + d1upper) + CRbound (z2upper) but *without* early combo
+        create_script instance, early_combo: false, use_de: true, use_boole: false, boole_freq: 0, use_cr: true
     end
 end
 
