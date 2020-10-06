@@ -423,7 +423,8 @@ float get_boole_bound(
         size_t n_unfixed_items
 ) {
     TBKPBooleSol boolesol = tbkp_boolesol_lin_gurobi_get(
-            status->instance , n_unfixed_items, items, residual->res_capacity);
+            status->instance , n_unfixed_items, items, residual->res_capacity,
+            status->params->boole_lin_solver_timeout_s);
     
     ++(status->stats->n_boole_called);
     status->stats->tot_time_boole += boolesol.time_to_compute;

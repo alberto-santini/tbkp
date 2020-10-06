@@ -21,6 +21,7 @@ typedef struct {
     _Bool use_early_combo;
     _Bool use_all_bounds_at_root;
     size_t max_nodes;
+    float boole_lin_solver_timeout_s;
 } TBKPParams;
 
 #endif //TBKP_TBKP_PARAMS_H

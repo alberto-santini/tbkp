@@ -76,6 +76,7 @@ TBKPBooleSol tbkp_boolesol_quad_gurobi_get(
  *                  considering when solving the Boole BQ problem.
  * @param capacity  Capacity of the Boole BQ knapsack (which can be smaller
  *                  than the original TBKP instance's capacity).
+ * @param solver_timeout_s Timeout to pass to the MIP solver used (in seconds).
  * @return          The value of the LB and the objects selected by the Boole
  *                  QB problem.
  */
@@ -83,7 +84,8 @@ TBKPBooleSol tbkp_boolesol_lin_gurobi_get(
         const TBKPInstance* instance,
         size_t n_items,
         const size_t* items,
-        uint_fast32_t capacity);
+        uint_fast32_t capacity,
+        float solver_timeout_s);
 
 /** Computes the original TBKP objective value of a solution obtained
  *  using the Boole BQ problem.

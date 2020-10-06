@@ -15,7 +15,8 @@ TBKPBooleSol tbkp_boolesol_lin_gurobi_get(
         const TBKPInstance* instance,
         size_t n_items,
         const size_t* items,
-        uint_fast32_t capacity)
+        uint_fast32_t capacity,
+        float solver_timeout_s)
 {
     clock_t start_time = clock();
 
@@ -122,6 +123,13 @@ TBKPBooleSol tbkp_boolesol_lin_gurobi_get(
 
     if(error) {
         printf("Gurobi setintattr ModelSense error: %d\n", error);
+        exit(EXIT_FAILURE);
+    }
+    
+    error = GRBsetdblparam(grb_env, "TimeLimit", solver_timeout_s);
+
+    if(error) {
+        printf("Gurobi setdblparam error while setting timeout: %d\n", error);
         exit(EXIT_FAILURE);
     }
 
