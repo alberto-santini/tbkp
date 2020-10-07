@@ -1,7 +1,5 @@
 require 'fileutils'
 
-MEM = (ARGV[0] == 'mem' ? '16GB' : '8GB')
-
 L = "/homes/users/asantini/local/lib:/homes/users/asantini/local/lib64"
 G = "/homes/users/asantini/.gurobi/$HOSTNAME/gurobi.lic"
 E = "/homes/users/asantini/local/src/tbkp/build/tbkp"
@@ -12,7 +10,6 @@ S = <<~EOF
     #SBATCH --nodes=1
     #SBATCH --ntasks-per-node=1
     #SBATCH --cpus-per-task=1
-    #SBATCH --mem-per-cpu=#{MEM}
 EOF
 
 def create_script(instance, early_combo:, use_de:, use_boole:, boole_freq:, boole_tl:, use_cr:, all_bounds: false, max_nodes: 0)
@@ -22,6 +19,7 @@ def create_script(instance, early_combo:, use_de:, use_boole:, boole_freq:, bool
     )
 
     b = File.basename(instance, '.txt')
+    sz = b.split('-')[1].to_i
     b += "-d" if use_de
     b += "-b#{boole_freq},#{boole_tl}" if use_boole
     b += "-r" if use_cr
@@ -40,8 +38,11 @@ def create_script(instance, early_combo:, use_de:, use_boole:, boole_freq:, bool
     params += " -a 1" if all_bounds
     params += " -n #{max_nodes}"
 
+    mem = (sz == 5000) ? '16GB' : '8GB'
+
     script = <<~EOF
         #{S.strip}
+        #SBATCH --mem-per-cpu=#{mem}
         #SBATCH -o #{output_f}
         #SBATCH -e #{error_f}
 
@@ -63,17 +64,17 @@ end
 def create_bb_eval_scripts
     Dir.glob('../data/generated-instances/*.txt') do |instance|
         # First configuration: enumeration
-        create_script instance, early_combo: true, use_de: false, use_boole: false, boole_freq: 0, boole_tl: 3600, use_cr: false
+        # create_script instance, early_combo: true, use_de: false, use_boole: false, boole_freq: 0, boole_tl: 3600, use_cr: false
         # Second configuration: DEbounds (z1lower + d1upper)
-        create_script instance, early_combo: true, use_de: true, use_boole: false, boole_freq: 0, boole_tl: 3600, use_cr: false
+        # create_script instance, early_combo: true, use_de: true, use_boole: false, boole_freq: 0, boole_tl: 3600, use_cr: false
         # Third configuration: all bounds, i.e., DEbounds (z1lower + z1upper), BOOLEbound (z2lower), CRbound (z2upper)
-        create_script instance, early_combo: true, use_de: true, use_boole: true, boole_freq: 1, boole_tl: 3600, use_cr: true
+        create_script instance, early_combo: true, use_de: true, use_boole: true, boole_freq: 1, boole_tl: 1, use_cr: true
         # Fourth configuration: DEbounds (z1lower + d1upper) + BOOLEbound (z2lower)
-        create_script instance, early_combo: true, use_de: true, use_boole: true, boole_freq: 1, boole_tl: 3600, use_cr: false
+        create_script instance, early_combo: true, use_de: true, use_boole: true, boole_freq: 1, boole_tl: 1, use_cr: false
         # Fifth configuration: DEbounds (z1lower + d1upper) + CRbound (z2upper)
-        create_script instance, early_combo: true, use_de: true, use_boole: false, boole_freq: 0, boole_tl: 3600, use_cr: true
+        # create_script instance, early_combo: true, use_de: true, use_boole: false, boole_freq: 0, boole_tl: 3600, use_cr: true
         # Sixth configuration: DEbounds (z1lower + d1upper) + CRbound (z2upper) but *without* early combo
-        create_script instance, early_combo: false, use_de: true, use_boole: false, boole_freq: 0, boole_tl: 3600, use_cr: true
+        # create_script instance, early_combo: false, use_de: true, use_boole: false, boole_freq: 0, boole_tl: 3600, use_cr: true
     end
 end
 
