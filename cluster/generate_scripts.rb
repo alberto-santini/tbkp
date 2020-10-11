@@ -38,7 +38,11 @@ def create_script(instance, early_combo:, use_de:, use_boole:, boole_freq:, bool
     params += " -a 1" if all_bounds
     params += " -n #{max_nodes}"
 
-    mem = (sz == 5000) ? '16GB' : '8GB'
+    mem = case sz
+        when 5000 then '64GB'
+        when 1000 '16GB'
+        else '8GB'
+    end
 
     script = <<~EOF
         #{S.strip}
@@ -68,9 +72,9 @@ def create_bb_eval_scripts
         # Second configuration: DEbounds (z1lower + d1upper)
         # create_script instance, early_combo: true, use_de: true, use_boole: false, boole_freq: 0, boole_tl: 3600, use_cr: false
         # Third configuration: all bounds, i.e., DEbounds (z1lower + z1upper), BOOLEbound (z2lower), CRbound (z2upper)
-        create_script instance, early_combo: true, use_de: true, use_boole: true, boole_freq: 1, boole_tl: 1, use_cr: true
+        create_script instance, early_combo: true, use_de: true, use_boole: true, boole_freq: 1000, boole_tl: 1, use_cr: true
         # Fourth configuration: DEbounds (z1lower + d1upper) + BOOLEbound (z2lower)
-        create_script instance, early_combo: true, use_de: true, use_boole: true, boole_freq: 1, boole_tl: 1, use_cr: false
+        create_script instance, early_combo: true, use_de: true, use_boole: true, boole_freq: 1000, boole_tl: 1, use_cr: false
         # Fifth configuration: DEbounds (z1lower + d1upper) + CRbound (z2upper)
         # create_script instance, early_combo: true, use_de: true, use_boole: false, boole_freq: 0, boole_tl: 3600, use_cr: true
         # Sixth configuration: DEbounds (z1lower + d1upper) + CRbound (z2upper) but *without* early combo
