@@ -13,26 +13,26 @@ GRBenv* grb_env = NULL;
 
 TBKPParams parse_arguments(int argc, const char** argv) {
     TBKPParams p = {
-            .solver = "bb",
-            .instance_file = NULL,
-            .output_file = NULL,
-            .timeout = 3600.0f,
-            .boole_lin_solver_timeout_s = 3600.0f,
-            .boole_bound_frequency = 1u,
-            .use_cr_bound = false,
-            .use_de_bounds = false,
-            .use_boole_bound = false,
-            .use_early_combo = false,
-            .use_all_bounds_at_root = false,
-            .max_nodes = 0
+        .solver = "bb",
+        .instance_file = NULL,
+        .output_file = NULL,
+        .timeout = 3600.0f,
+        .boole_lin_solver_timeout_s = 3600.0f,
+        .boole_bound_frequency = 1u,
+        .use_cr_bound = false,
+        .use_de_bounds = false,
+        .use_boole_bound = false,
+        .use_early_combo = false,
+        .use_all_bounds_at_root = false,
+        .max_nodes = 0
     };
 
     // I think we need this because argparse's OPT_BOOLEAN has a bug.
     int early_combo = 0, cont_relax = 0, de_bounds = 0, boole_bound = 0, all_bounds = 0;
 
     static const char *const usage[] = {
-            "tbkp [options]",
-            NULL
+        "tbkp [options]",
+        NULL
     };
 
     struct argparse_option options[] = {
@@ -46,7 +46,7 @@ TBKPParams parse_arguments(int argc, const char** argv) {
         OPT_INTEGER('r', "contrelax", &cont_relax, "1 if we use bounds from the continuous relaxation"),
         OPT_INTEGER('d', "debounds", &de_bounds, "1 if we use the DE bounds"),
         OPT_INTEGER('b', "boolebound", &boole_bound, "1 if we use the Boole bound"),
-        OPT_INTEGER('f', "boolefreq", &p.boole_bound_frequency, "freequency at which to use the Boole bound"),
+        OPT_INTEGER('f', "boolefreq", &p.boole_bound_frequency, "frequency at which to use the Boole bound"),
         OPT_INTEGER('a', "allbounds", &all_bounds, "1 if using all bounds at the root node, no matter what the other options are"),
         OPT_INTEGER('n', "maxnodes", &p.max_nodes, "Number of branch-and-bound nodes to be explored (1 for root node only, 0 for no limit)"),
         OPT_END()
