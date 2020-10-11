@@ -40,7 +40,7 @@ def create_script(instance, early_combo:, use_de:, use_boole:, boole_freq:, bool
 
     mem = case sz
         when 5000 then '64GB'
-        when 1000 '16GB'
+        when 1000 then '16GB'
         else '8GB'
     end
 
@@ -85,4 +85,4 @@ end
 FileUtils.mkdir_p('scripts')
 FileUtils.mkdir_p('output')
 
-create_boole_root_bound_scripts
+create_bb_eval_scripts
