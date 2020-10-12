@@ -67,7 +67,7 @@ static void tbkp_dp_timebombtable_compute(
         const float pij = inst->probabilities[j];
 
         for(uint_fast32_t dd = 0u; dd <= c; ++dd) {
-		    const uint_fast32_t d = c - dd;
+            const uint_fast32_t d = c - dd;
 
             for(uint_fast32_t v = 0u; v <= U; ++v) {
                 const float current_val = tbkp_dp_timebombtable_get(d, v, j - 1u, tb_t, inst);
@@ -147,7 +147,7 @@ static void tbkp_dp_deterministictable_compute(
         const uint_fast32_t pj = inst->profits[j_idx];
 
         for(uint_fast32_t dd = 0u; dd <= inst->capacity; ++dd) {
-		    const uint_fast32_t d = inst->capacity - dd;
+            const uint_fast32_t d = inst->capacity - dd;
             const uint_fast32_t old_value = tbkp_dp_deterministictable_get(d, j - 1u, d_t, inst);
             uint_fast32_t new_value = 0;
 

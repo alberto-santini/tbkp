@@ -70,7 +70,7 @@ static float bin_search(size_t n, float* x, float* d, uint_fast32_t *p, float* q
         }
     }
 
-	return bestl;
+    return bestl;
 }
 
 static void solve_Dantzig(size_t n, float* p, uint_fast32_t* w, uint_fast32_t c, const TBKPBBFixedStatus* xbra, float* y) {
@@ -133,32 +133,32 @@ TBKPContinuousRelaxationSol tbkp_crsol_get(
 
     size_t n = instance->n_items;
     float* xc = (float*) calloc(n, sizeof(float)); // x variables
-	float* a = (float*) calloc(n, sizeof(float)); // \alpha variables
-	float* q = (float*) calloc(n, sizeof(float)); // q probabilities
+    float* a = (float*) calloc(n, sizeof(float)); // \alpha variables
+    float* q = (float*) calloc(n, sizeof(float)); // q probabilities
 
-	for(size_t j = 0; j < n; j++) {
-		if(xbra[j] == 1) {
+    for(size_t j = 0; j < n; j++) {
+        if(xbra[j] == 1) {
             xc[j] = 1.0;
         } else {
             xc[j] = 0.0;
         }
 
-		a[j] = 1.0f;
-		q[j] = 1.0f - instance->probabilities[j];
-	}
+        a[j] = 1.0f;
+        q[j] = 1.0f - instance->probabilities[j];
+    }
 
-	float product = 1.0;
-	float ptot = 0.0;
-	float* g = (float*) calloc(n, sizeof(float)); // gradient
-	float* d = (float*) calloc(n, sizeof(float)); // improving direction (if any)
-	float* y = (float*) calloc(n, sizeof(float)); // next solution
-	float objval = 0.0;
+    float product = 1.0;
+    float ptot = 0.0;
+    float* g = (float*) calloc(n, sizeof(float)); // gradient
+    float* d = (float*) calloc(n, sizeof(float)); // improving direction (if any)
+    float* y = (float*) calloc(n, sizeof(float)); // next solution
+    float objval = 0.0;
 
-	while(true) {
-		float oldobj = objval;
+    while(true) {
+        float oldobj = objval;
 
-		// Compute the gradient
-		product = 1.0;
+        // Compute the gradient
+        product = 1.0;
         for(size_t j = 0; j < n; j++) {
             product *= (1.0f - q[j]*xc[j]);
         }
@@ -166,29 +166,29 @@ TBKPContinuousRelaxationSol tbkp_crsol_get(
             const float value = (float)(instance->profits[j]) - ptot * q[j] / (1.0f - q[j] * xc[j]);
             g[j] = product * value;
         }
-		
-		// Find a candidate direction for improving
-		solve_Dantzig(n, g, instance->weights, instance->capacity, xbra, y);
-		for(size_t j = 0; j < n; j++) {
+        
+        // Find a candidate direction for improving
+        solve_Dantzig(n, g, instance->weights, instance->capacity, xbra, y);
+        for(size_t j = 0; j < n; j++) {
             d[j] = y[j] - xc[j];
         }
 
-		// Check if the direction is improving
-		float delta = 0.0f;
-		for(size_t j = 0; j < n; j++) {
+        // Check if the direction is improving
+        float delta = 0.0f;
+        for(size_t j = 0; j < n; j++) {
             delta += g[j] * d[j];
         }
-		if(delta < EPSC) {
+        if(delta < EPSC) {
             break;
         }
 
-		// Determine the optimal value for parameter \lambda
-		float lambda = bin_search(n, xc, d, instance->profits, q);
+        // Determine the optimal value for parameter \lambda
+        float lambda = bin_search(n, xc, d, instance->profits, q);
 
-		// Determine the next point
-		ptot = 0.0f;
-		product = 1.0f;
-		for(size_t j = 0; j < n; j++) {
+        // Determine the next point
+        ptot = 0.0f;
+        product = 1.0f;
+        for(size_t j = 0; j < n; j++) {
             const float zj = xc[j] +  lambda * d[j];
             ptot += (float)(instance->profits[j]) * zj;
             a[j] = 1.0f - q[j] * zj;
@@ -196,24 +196,24 @@ TBKPContinuousRelaxationSol tbkp_crsol_get(
             xc[j] = zj;
         }
         objval = ptot * product;
-		
-		// Break if no improvement
-		if(objval - oldobj < EPSC) {
+        
+        // Break if no improvement
+        if(objval - oldobj < EPSC) {
             break;
         }
-	}
+    }
 
     _Bool integer_sol = true;
     size_t n_items = 0u;
-	for(size_t i = 0u; i < n; ++i) {	
-		if((xc[i] > EPSC) && (xc[i] < 1.0f - EPSC)) {
-			integer_sol = false;
-		}
+    for(size_t i = 0u; i < n; ++i) {    
+        if((xc[i] > EPSC) && (xc[i] < 1.0f - EPSC)) {
+            integer_sol = false;
+        }
 
         if(xc[i] > 1.0f - EPSC) {
             ++n_items;
         }
-	}
+    }
 
     size_t* items = NULL;
 
@@ -229,17 +229,17 @@ TBKPContinuousRelaxationSol tbkp_crsol_get(
         }
     }
 
-	free(y);
-	free(d);
-	free(g);
-	free(q);
-	free(a);
+    free(y);
+    free(d);
+    free(g);
+    free(q);
+    free(a);
     free(xc);
 
     clock_t end_time = clock();
     float elapsed_time = (float)(end_time - start_time) / CLOCKS_PER_SEC;
 
-	return (TBKPContinuousRelaxationSol){
+    return (TBKPContinuousRelaxationSol){
         .ub = objval,
         .is_lb = integer_sol,
         .lb_product_probabilities = product,

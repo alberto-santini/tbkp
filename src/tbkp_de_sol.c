@@ -47,7 +47,7 @@ TBKPDeterministicEqSol tbkp_desol_get(
     
     // Combo crashes if the total weights are < than the knapsack's capacity!
     if(sumw <= (cmb_stype)capacity) {
-	    cmb_ub = sump;
+        cmb_ub = sump;
         for(size_t i = 0; i < n_items; ++i) {
             cmb_items[i].x = 1;
         }

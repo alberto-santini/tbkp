@@ -65,7 +65,7 @@ static int tbkp_bb_branch_item(const TBKPBBAlgStatus *const status, const TBKPBB
  * @return          Returns true iff a timeout occurred.
  */
 static _Bool timeout(TBKPBBAlgStatus* status, float parent_ub) {
-	clock_t current_time = clock();
+    clock_t current_time = clock();
     float el_time = (float)(current_time - status->stats->start_time) / CLOCKS_PER_SEC;
 
     if(el_time > status->params->timeout) {
@@ -79,7 +79,7 @@ static _Bool timeout(TBKPBBAlgStatus* status, float parent_ub) {
         return true;
     }
 
-	return false;
+    return false;
 }
 
 /**
@@ -88,13 +88,13 @@ static _Bool timeout(TBKPBBAlgStatus* status, float parent_ub) {
  * @return          The number of items with UNFIXED status.
  */
 static size_t num_unfixed_items(const TBKPBBAlgStatus *const status) {
-	size_t n_unfixed_items = 0u;
-	for(size_t j = 0u; j < status->instance->n_items; ++j) {
+    size_t n_unfixed_items = 0u;
+    for(size_t j = 0u; j < status->instance->n_items; ++j) {
         if (status->x[j] == UNFIXED) {
             n_unfixed_items++;
         }
     }
-	return n_unfixed_items;
+    return n_unfixed_items;
 }
 
 /**
@@ -106,20 +106,20 @@ static size_t num_unfixed_items(const TBKPBBAlgStatus *const status) {
  * @return                  An array with the indices of items in the residual instance.
  */
 static size_t* residual_instance(const TBKPBBAlgStatus *const status, size_t n_unfixed_items) {
-	size_t* items = malloc(n_unfixed_items * sizeof(*items));
-	if(!items) {
-	    printf("Cannot allocate memory for the residual instance's items\n");
-	    exit(EXIT_FAILURE);
-	}
+    size_t* items = malloc(n_unfixed_items * sizeof(*items));
+    if(!items) {
+        printf("Cannot allocate memory for the residual instance's items\n");
+        exit(EXIT_FAILURE);
+    }
 
-	size_t cnt = 0;
-	for(size_t j = 0; j < status->instance->n_items; j++) {
-		if(status->x[j] == UNFIXED) {
-			items[cnt++] = j;
-		}
-	}
+    size_t cnt = 0;
+    for(size_t j = 0; j < status->instance->n_items; j++) {
+        if(status->x[j] == UNFIXED) {
+            items[cnt++] = j;
+        }
+    }
 
-	return items;
+    return items;
 }
 
 /**
@@ -130,9 +130,9 @@ static size_t* residual_instance(const TBKPBBAlgStatus *const status, size_t n_u
  * LB.
  */
 typedef struct {
-	float local_ub;
-	float local_lb;
-	_Bool should_prune;
+    float local_ub;
+    float local_lb;
+    _Bool should_prune;
 } DEBounds;
 
 /**
@@ -288,31 +288,31 @@ static CRBound get_cr_bound(
     size_t current_node
 ) {
     // Compute the continuous relaxation bound
-	TBKPContinuousRelaxationSol crsol = tbkp_crsol_get(status->instance, status->x);
+    TBKPContinuousRelaxationSol crsol = tbkp_crsol_get(status->instance, status->x);
 
     ++(status->stats->n_cr_called);
     status->stats->tot_time_cr += crsol.time_to_compute;
 
-	if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-	    printf("\t\tUB (continuous relaxation): %f (vs %f)\n", crsol.ub, status->solution->value);
-	}
+    if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+        printf("\t\tUB (continuous relaxation): %f (vs %f)\n", crsol.ub, status->solution->value);
+    }
 
-	if(crsol.ub <= status->solution->value) {
-		return (CRBound){.local_ub = crsol.ub, .is_lb = crsol.is_lb, .should_prune = true};
-	}
+    if(crsol.ub <= status->solution->value) {
+        return (CRBound){.local_ub = crsol.ub, .is_lb = crsol.is_lb, .should_prune = true};
+    }
 
     if(current_node == 1u) {
         status->stats->cr_ub_at_root = crsol.ub;
         status->stats->time_to_compute_cr_at_root = crsol.time_to_compute;
     }
 
-	// Check if the solution of the continuous relaxation is integer and improves
-	if(crsol.is_lb) {
+    // Check if the solution of the continuous relaxation is integer and improves
+    if(crsol.is_lb) {
         const float local_lb = crsol.ub;
 
         if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-	        printf("\t\tLB (continuous relaxation): %f (vs %f)\n", crsol.ub, status->solution->value);
-	    }
+            printf("\t\tLB (continuous relaxation): %f (vs %f)\n", crsol.ub, status->solution->value);
+        }
 
         // Possibly update the best integer solution
         if(local_lb > status->stats->lb) {
@@ -320,13 +320,13 @@ static CRBound get_cr_bound(
 
             status->stats->lb = local_lb;
             update_best_solution_from_cr(status, &crsol, local_lb);
-	    }
-	}
+        }
+    }
 
     tbkp_crsol_free_inside(&crsol);
 
     // If the cont relax is integer (crsol.is_lb) we can prune the node.
-	return (CRBound){.local_ub = crsol.ub, .is_lb = crsol.is_lb, .should_prune = crsol.is_lb};
+    return (CRBound){.local_ub = crsol.ub, .is_lb = crsol.is_lb, .should_prune = crsol.is_lb};
 }
 
 /**
@@ -347,25 +347,25 @@ static DEBounds get_de_bounds(
         size_t* items,
         size_t n_unfixed_items
 ) {
-	// Solve the deterministic relaxation
-	TBKPDeterministicEqSol desol = tbkp_desol_get(status->instance, n_unfixed_items, items, residual->res_capacity);
+    // Solve the deterministic relaxation
+    TBKPDeterministicEqSol desol = tbkp_desol_get(status->instance, n_unfixed_items, items, residual->res_capacity);
 
     ++(status->stats->n_de_called);
     status->stats->tot_time_de += desol.time_to_compute;
 
-	// Compute the local upper bound and possibly kill the node
-	float local_ub = ((float)residual->sum_profits + desol.ub) * residual->prod_probabilities;
-	if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-	    printf("\t\tUB (deterministic relaxation): %f\n", local_ub);
-	}
+    // Compute the local upper bound and possibly kill the node
+    float local_ub = ((float)residual->sum_profits + desol.ub) * residual->prod_probabilities;
+    if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+        printf("\t\tUB (deterministic relaxation): %f\n", local_ub);
+    }
 
-	if(local_ub <= status->solution->value) {
+    if(local_ub <= status->solution->value) {
         tbkp_desol_free_inside(&desol);
-		free(items); items = NULL;
-		return (DEBounds){.local_ub = local_ub, .local_lb = 0.0f, .should_prune = true};
-	}
-	
-	float local_lb = (float) (desol.lb_sum_profits + residual->sum_profits) *
+        free(items); items = NULL;
+        return (DEBounds){.local_ub = local_ub, .local_lb = 0.0f, .should_prune = true};
+    }
+    
+    float local_lb = (float) (desol.lb_sum_profits + residual->sum_profits) *
                      (desol.lb_product_probabilities * residual->prod_probabilities);
 
     // If the heuristic solution obtained with the deterministic bound is better
@@ -377,9 +377,9 @@ static DEBounds get_de_bounds(
         local_lb = desol.lb;
     }
 
-	if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-	    printf("\t\tLB (deterministic relaxation): %f (vs %f)\n", local_lb, status->solution->value);
-	}
+    if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+        printf("\t\tLB (deterministic relaxation): %f (vs %f)\n", local_lb, status->solution->value);
+    }
 
     if(current_node == 1u) {
         status->stats->de_lb_at_root = local_lb;
@@ -388,21 +388,21 @@ static DEBounds get_de_bounds(
     }
 
     // Possibly update the best integer solution
-	if(local_lb > status->stats->lb) {
+    if(local_lb > status->stats->lb) {
         assert(local_lb > status->solution->value);
 
-	    status->stats->lb = local_lb;
+        status->stats->lb = local_lb;
 
         if(better_de_alone) {
             update_best_solution_from_de_alone(status, &desol);
         } else {
             update_best_solution_from_de(status, residual, &desol, local_lb);
         }
-	}
+    }
 
-	tbkp_desol_free_inside(&desol);
+    tbkp_desol_free_inside(&desol);
 
-	return (DEBounds){.local_ub = local_ub, .local_lb = local_lb, .should_prune = false};
+    return (DEBounds){.local_ub = local_ub, .local_lb = local_lb, .should_prune = false};
 }
 
 /**
@@ -572,7 +572,7 @@ static void branch(
         size_t current_node,
         int jbra
 ) {
-	// Return if the node limit has been reached
+    // Return if the node limit has been reached
     if(status->params->max_nodes > 0u && *(status->n_nodes) >= status->params->max_nodes) {
         if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
             printf("Maximum number of nodes (%zu) reached!\n", status->params->max_nodes);
@@ -581,33 +581,33 @@ static void branch(
         return;
     }
 
-	// Left node: fix the item in the solution
-	TBKPBBResidualInstance left_residual = {
+    // Left node: fix the item in the solution
+    TBKPBBResidualInstance left_residual = {
             .prod_probabilities = residual.prod_probabilities * status->instance->probabilities[jbra],
             .sum_profits = residual.sum_profits + status->instance->profits[jbra],
-	        .res_capacity = residual.res_capacity - status->instance->weights[jbra]
-	};
+            .res_capacity = residual.res_capacity - status->instance->weights[jbra]
+    };
 
-	// Fix the item: pack it!
-	status->x[jbra] = FIXED_PACK;
+    // Fix the item: pack it!
+    status->x[jbra] = FIXED_PACK;
 
-	if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-	    printf("[NODE %zu] Branching on item %d (profit: %" PRIuFAST32 ", weight %" PRIuFAST32 ", prob %.3f)\n",
-	            current_node, jbra, status->instance->profits[jbra], status->instance->weights[jbra],
-	            status->instance->probabilities[jbra]);
-	    printf("\tPacking the item\n");
-	    printf("\tResidual capacity in the child node: %" PRIuFAST32 "\n", left_residual.res_capacity);
-	    printf("\tSum of profits in the child node: %" PRIuFAST32 "\n", left_residual.sum_profits);
-	    printf("\tProduct of probabilities in the child node: %.3f\n", left_residual.prod_probabilities);
-	}
+    if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+        printf("[NODE %zu] Branching on item %d (profit: %" PRIuFAST32 ", weight %" PRIuFAST32 ", prob %.3f)\n",
+                current_node, jbra, status->instance->profits[jbra], status->instance->weights[jbra],
+                status->instance->probabilities[jbra]);
+        printf("\tPacking the item\n");
+        printf("\tResidual capacity in the child node: %" PRIuFAST32 "\n", left_residual.res_capacity);
+        printf("\tSum of profits in the child node: %" PRIuFAST32 "\n", left_residual.sum_profits);
+        printf("\tProduct of probabilities in the child node: %.3f\n", left_residual.prod_probabilities);
+    }
 
-	tbkp_bb_solve_node(status, parent_ub, left_residual, true /* early combo on 1-branch */);
+    tbkp_bb_solve_node(status, parent_ub, left_residual, true /* early combo on 1-branch */);
 
-	if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-	    printf("[NODE %zu] Returned from left node to father node\n", current_node);
-	}
+    if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+        printf("[NODE %zu] Returned from left node to father node\n", current_node);
+    }
 
-	// Return if the node limit has been reached
+    // Return if the node limit has been reached
     if(status->params->max_nodes > 0u && *(status->n_nodes) >= status->params->max_nodes) {
         if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
             printf("Maximum number of nodes (%zu) reached!\n", status->params->max_nodes);
@@ -616,13 +616,13 @@ static void branch(
         return;
     }
 
-	// Right node: remove the item
+    // Right node: remove the item
     // The residual instance stays the same.
 
     // Fix the item: don't pack it!
-	status->x[jbra] = FIXED_DONT_PACK;
+    status->x[jbra] = FIXED_DONT_PACK;
 
-	if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+    if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
         printf("[NODE %zu] Branching on item %d (profit: %" PRIuFAST32 ", weight %" PRIuFAST32 ", prob %.3f)\n",
                current_node, jbra, status->instance->profits[jbra], status->instance->weights[jbra],
                status->instance->probabilities[jbra]);
@@ -630,16 +630,16 @@ static void branch(
         printf("\tResidual capacity in the child node: %" PRIuFAST32 "\n", residual.res_capacity);
         printf("\tSum of profits in the child node: %" PRIuFAST32 "\n", residual.sum_profits);
         printf("\tProduct of probabilities in the child node: %.3f\n", residual.prod_probabilities);
-	}
+    }
 
-	tbkp_bb_solve_node(status, parent_ub, residual, false /* no early combo on 0-branch */);
+    tbkp_bb_solve_node(status, parent_ub, residual, false /* no early combo on 0-branch */);
 
     if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
         printf("[NODE %zu] Returned from right node to father node\n", current_node);
     }
 
-	// Unfix the item.
-	status->x[jbra] = UNFIXED;
+    // Unfix the item.
+    status->x[jbra] = UNFIXED;
 }
 
 /** Solves a Branch-and-Bound node and possible updates the current solution.
@@ -656,27 +656,27 @@ static void tbkp_bb_solve_node(
         _Bool early_combo)
 {
     if(timeout(status, parent_ub)) {
-		return;
-	}
+        return;
+    }
 
     (*(status->n_nodes))++;
 
     const size_t current_node = *(status->n_nodes);
 
-	// Count the number of items that are still unfixed
-	size_t n_unfixed_items = num_unfixed_items(status);
+    // Count the number of items that are still unfixed
+    size_t n_unfixed_items = num_unfixed_items(status);
 
-	// Define the items residual instance
-	size_t* items = residual_instance(status, n_unfixed_items);
+    // Define the items residual instance
+    size_t* items = residual_instance(status, n_unfixed_items);
 
-	if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-	    printf("[NODE %zu] Entering node\n", current_node);
-	    printf("\tCurrent sol = %.3f, residual capacity = %" PRIuFAST32 "\n",
-	            status->solution->value, residual.res_capacity);
-		printf("\tSum of profits: %" PRIuFAST32 "\n", residual.sum_profits);
-		printf("\tProduct of probabilities: %f\n", residual.prod_probabilities);
-		printf("\tNumber of unfixed items: %zu\n", n_unfixed_items);
-	}	
+    if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+        printf("[NODE %zu] Entering node\n", current_node);
+        printf("\tCurrent sol = %.3f, residual capacity = %" PRIuFAST32 "\n",
+                status->solution->value, residual.res_capacity);
+        printf("\tSum of profits: %" PRIuFAST32 "\n", residual.sum_profits);
+        printf("\tProduct of probabilities: %f\n", residual.prod_probabilities);
+        printf("\tNumber of unfixed items: %zu\n", n_unfixed_items);
+    }    
 
     float new_ub = FLT_MAX;
     float new_lb = 0.0f;
@@ -708,8 +708,8 @@ static void tbkp_bb_solve_node(
         }
     }
 
-	if(status->params->use_de_bounds || use_all_bounds) {
-		DEBounds de_bounds = get_de_bounds(status, &residual, current_node, items, n_unfixed_items);
+    if(status->params->use_de_bounds || use_all_bounds) {
+        DEBounds de_bounds = get_de_bounds(status, &residual, current_node, items, n_unfixed_items);
 
         if(de_bounds.local_ub < new_ub - EPS) {
             // Local UB improved.
@@ -723,46 +723,46 @@ static void tbkp_bb_solve_node(
 
         // Do not prune early if using all bounds, otherwise we cannot compute
         // the other bounds.
-		if(de_bounds.should_prune && !use_all_bounds) {
-			if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-				printf("[NODE %zu] Pruning node thanks to DE bounds\n", current_node);
-			}
+        if(de_bounds.should_prune && !use_all_bounds) {
+            if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+                printf("[NODE %zu] Pruning node thanks to DE bounds\n", current_node);
+            }
 
-			return;
-		}
-	}
+            return;
+        }
+    }
 
     assert(current_node >= 1u);
-	if((status->params->use_boole_bound && (current_node - 1u) % status->params->boole_bound_frequency == 0u) || use_all_bounds) {
-		float boole_lb = get_boole_bound(status, &residual, current_node, items, n_unfixed_items);
+    if((status->params->use_boole_bound && (current_node - 1u) % status->params->boole_bound_frequency == 0u) || use_all_bounds) {
+        float boole_lb = get_boole_bound(status, &residual, current_node, items, n_unfixed_items);
 
-		if(boole_lb > new_lb) {
-		    // Local LB improved.
-		    new_lb = boole_lb;
-		}
-	}
+        if(boole_lb > new_lb) {
+            // Local LB improved.
+            new_lb = boole_lb;
+        }
+    }
 
     if((status->params->use_early_combo || use_all_bounds) && early_combo) {
-		// It's smarter to solve the deterministic 01KP early, with the TB items fixed until now. When
-		// branching on zero, we don't need to recompute this, because we inherit from the parent node.
-		// We only need to call combo again on the 1 branches.
+        // It's smarter to solve the deterministic 01KP early, with the TB items fixed until now. When
+        // branching on zero, we don't need to recompute this, because we inherit from the parent node.
+        // We only need to call combo again on the 1 branches.
 
-		if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-		    printf("[NODE %zu] Calling COMBO\n", current_node);
-		}
+        if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+            printf("[NODE %zu] Calling COMBO\n", current_node);
+        }
 
-		float cmb_lb = solve_det_kp(status, &residual);
+        float cmb_lb = solve_det_kp(status, &residual);
 
         if(cmb_lb > new_lb) {
             // Local LB improved.
             new_lb = cmb_lb;
         }
-	}
+    }
 
     /** END COMPUTATION OF NEW UBs AND/OR LBs AT THIS NODE. **/
 
     // Check if exploring this node gave a tighter UB than what we had.
-    float local_ub = parent_ub;	
+    float local_ub = parent_ub;    
     if(local_ub == INITIAL_UB_PLACEHOLDER || new_ub < local_ub - EPS) {
         local_ub = new_ub;
     }
@@ -776,14 +776,14 @@ static void tbkp_bb_solve_node(
     }
 
     // Check if LB == UB; in this case, prune.
-	if(local_lb >= local_ub - EPS && local_lb != INITIAL_LB_PLACEHOLDER && local_ub != INITIAL_UB_PLACEHOLDER) {
-	    if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-	        printf("[NODE %zu] LB and UB coincide (%.6f): closing node\n", current_node, local_lb);
-	    }
+    if(local_lb >= local_ub - EPS && local_lb != INITIAL_LB_PLACEHOLDER && local_ub != INITIAL_UB_PLACEHOLDER) {
+        if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+            printf("[NODE %zu] LB and UB coincide (%.6f): closing node\n", current_node, local_lb);
+        }
 
-	    free(items); items = NULL;
-	    return;
-	}
+        free(items); items = NULL;
+        return;
+    }
 
     // Find the branching item
     int jbra = tbkp_bb_branch_item(status, &residual);
@@ -805,9 +805,9 @@ static void tbkp_bb_solve_node(
         return;
     }
 
-	branch(status, residual, local_ub, current_node, jbra);
+    branch(status, residual, local_ub, current_node, jbra);
 
-	free(items); items = NULL;
+    free(items); items = NULL;
 }
 /************************************************************
  * END OF LOCAL HELPER FUNCTIONS                            *
