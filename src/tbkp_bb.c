@@ -43,12 +43,14 @@ static int tbkp_bb_branch_item(const TBKPBBAlgStatus *const status, const TBKPBB
         if(status->x[i] != UNFIXED) continue;
         if(status->instance->weights[i] > residual->res_capacity) continue;
 
-        // Pruning: skip branch in case the solution value cannot increase
-        float scorej = ((float)status->instance->profits[i] * status->instance->probabilities[i]) /
-                (1.0f - status->instance->probabilities[i]);
+        if(status->params->use_early_pruning) {
+            // Pruning: skip branch in case the solution value cannot increase
+            float scorej = ((float)status->instance->profits[i] * status->instance->probabilities[i]) /
+                    (1.0f - status->instance->probabilities[i]);
 
-        if(scorej < residual->sum_profits) {
-            continue;
+            if(scorej < residual->sum_profits) {
+                continue;
+            }
         }
 
         return (int)i;
