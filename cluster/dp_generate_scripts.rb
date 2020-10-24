@@ -30,7 +30,7 @@ def create_script(instance, timeout: 3600)
         #SBATCH -e #{error_f}
 
         module load Gurobi/9.0.0-lic
-        LD_LIBRARY_PATH=#{L} #{E} -i #{instance} -o #{results_f} -t #{timeout}
+        LD_LIBRARY_PATH=#{L} #{E} -s dp -i #{instance} -o #{results_f} -t #{timeout}
     EOF
 
     File.write(script_f, script)
