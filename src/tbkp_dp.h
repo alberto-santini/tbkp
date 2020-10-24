@@ -21,6 +21,6 @@ void tbkp_dp_timebombtable_free(TBKPDPTimeBombTable* tb_t);
 TBKPDPDeterministicTable tbkp_dp_deterministictable_init(const TBKPInstance* inst);
 void tbkp_dp_deterministictable_free(TBKPDPDeterministicTable* d_t);
 
-float tbkp_dp_solve(const TBKPInstance *const inst, TBKPDPStats* stats);
+float tbkp_dp_solve(const TBKPInstance *const inst, TBKPDPStats* stats, const TBKPParams *const params);
 
 #endif

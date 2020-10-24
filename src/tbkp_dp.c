@@ -1,6 +1,7 @@
 #include "tbkp_dp.h"
 #include <assert.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <time.h>
 
 static void tbkp_dp_timebombtable_set_on_active_row(
@@ -53,9 +54,12 @@ static float tbkp_dp_timebombtable_getopt(
     return tbkp_dp_timebombtable_get(d, v, inst->n_tb_items - 1u, tb_t, inst);
 }
 
-static void tbkp_dp_timebombtable_compute(
+// Returns true if it times out - otherwise, false.
+static _Bool tbkp_dp_timebombtable_compute(
     TBKPDPTimeBombTable* tb_t,
-    const TBKPInstance *const inst
+    clock_t start_time,
+    const TBKPInstance *const inst,
+    const TBKPParams *const params
 ) {
     assert(tb_t->last_index == 0u);
     const uint_fast32_t c = inst->capacity;
@@ -83,6 +87,12 @@ static void tbkp_dp_timebombtable_compute(
                         tbkp_dp_timebombtable_set_on_new_row(d, v, current_val, tb_t, inst);
                     }
                 }
+
+                const clock_t current_time = clock();
+
+                if((float)(current_time - start_time) / CLOCKS_PER_SEC > params->timeout) {
+                    return true;
+                }
             }
         }
 
@@ -91,6 +101,8 @@ static void tbkp_dp_timebombtable_compute(
             tb_t->active_row = 1u - tb_t->active_row;
         }
     }
+
+    return false;
 }
 
 static void tbkp_dp_deterministictable_set_raw(
@@ -136,9 +148,11 @@ static uint_fast32_t tbkp_dp_deterministictable_getopt(
     return tbkp_dp_deterministictable_get(d, inst->n_det_items - 1u, d_t, inst);
 }
 
-static void tbkp_dp_deterministictable_compute(
+static _Bool tbkp_dp_deterministictable_compute(
     TBKPDPDeterministicTable* d_t,
-    const TBKPInstance *const inst
+    clock_t start_time,
+    const TBKPInstance *const inst,
+    const TBKPParams *const params
 ) {
 
     for(uint_fast32_t j = 1u; j < inst->n_det_items; ++j) {
@@ -160,8 +174,16 @@ static void tbkp_dp_deterministictable_compute(
             } else {
                 tbkp_dp_deterministictable_set(d, j, old_value, d_t, inst);
             }
+
+            const clock_t current_time = clock();
+
+            if((float)(current_time - start_time) / CLOCKS_PER_SEC > params->timeout) {
+                return true;
+            }
         }
     }
+
+    return false;
 }
 
 TBKPDPTimeBombTable tbkp_dp_timebombtable_init(const TBKPInstance* inst) {
@@ -224,15 +246,32 @@ void tbkp_dp_deterministictable_free(TBKPDPDeterministicTable* d_t) {
     free(d_t->t); d_t->t = NULL;
 }
 
-float tbkp_dp_solve(const TBKPInstance *const inst, TBKPDPStats* stats) {
+float tbkp_dp_solve(const TBKPInstance *const inst, TBKPDPStats* stats, const TBKPParams *const params) {
     const uint_fast32_t U = inst->tb_ub_packed_profit;
     TBKPDPTimeBombTable tb_t = tbkp_dp_timebombtable_init(inst);
     TBKPDPDeterministicTable d_t = tbkp_dp_deterministictable_init(inst);
 
     const clock_t start_time = clock();
+    _Bool timeout = false;
+    stats->elapsed_time = params->timeout;
+    stats->built_timebomb_table = false;
+    stats->built_deterministic_table = false;
 
-    tbkp_dp_timebombtable_compute(&tb_t, inst);
-    tbkp_dp_deterministictable_compute(&d_t, inst);
+    timeout = tbkp_dp_timebombtable_compute(&tb_t, start_time, inst, params);
+
+    if(timeout) {
+        return -1.0f;
+    }
+
+    stats->built_timebomb_table = true;
+
+    timeout = tbkp_dp_deterministictable_compute(&d_t, start_time, inst, params);
+
+    if(timeout) {
+        return -1.0f;
+    }
+
+    stats->built_deterministic_table = true;
 
     float best_sol = -1.0f;
 

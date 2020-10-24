@@ -101,8 +101,8 @@ int main(int argc, const char** argv) {
         tbkp_sol_free(&sol);
     } else if(strcmp(p.solver, "dp") == 0) {
         TBKPDPStats stats;
-        
-        const float sol = tbkp_dp_solve(instance, &stats);
+
+        const float sol = tbkp_dp_solve(instance, &stats, &p);
         printf("Dynamic programming. Solution: %.2f\n", sol);
         tbkp_dp_stats_to_file(&stats, &p);
     } else {

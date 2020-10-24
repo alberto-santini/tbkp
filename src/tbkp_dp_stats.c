@@ -15,7 +15,8 @@ void tbkp_dp_stats_to_file(const TBKPDPStats* stats, const TBKPParams* params) {
         exit(EXIT_FAILURE);
     }
 
-    fprintf(f, "time_s\n%.2f\n", stats->elapsed_time);
+    fprintf(f, "time_s,built_tb,built_det\n%.2f,%d,%d\n",
+            stats->elapsed_time, stats->built_timebomb_table, stats->built_deterministic_table);
 
     fclose(f);
 }

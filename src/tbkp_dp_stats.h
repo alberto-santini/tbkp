@@ -2,8 +2,11 @@
 #define TBKP_DP_STATS_H
 
 #include "tbkp_params.h"
+#include <stdbool.h>
 
 typedef struct {
+    _Bool built_timebomb_table;
+    _Bool built_deterministic_table;
     float elapsed_time;
 } TBKPDPStats;
 
