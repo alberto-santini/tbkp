@@ -12,6 +12,20 @@ The problem is introduced in the following paper:
 }
 ```
 
+You can cite this repository via Zenodo:
+
+```bib
+@misc{tbkp_github,
+    title={Code and instances for the 01-TB-KP},
+    author={Santini, Alberto},
+    date={2020-11-02},
+    year={2020},
+    howpublished={Github repository},
+    doi={10.5281/zenodo.4193102},
+    url={https://github.com/alberto-santini/tbkp/}
+}
+```
+
 ## Instances
 
 Instances are in folder `data/generated-instances`.
