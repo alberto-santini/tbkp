@@ -203,5 +203,3 @@ def generate_all_c
         end
     end
 end
-
-generate_all_c
