@@ -81,7 +81,7 @@ end
 def create_bb_eval_scripts
     Dir.glob('../data/generated-instances/*.txt') do |instance|
         # First configuration: enumeration
-        create_script instance, early_combo: true, early_pruning: false, use_de: false, use_boole: false, boole_freq: 0, boole_tl: 3600, use_cr: false
+        # create_script instance, early_combo: true, early_pruning: false, use_de: false, use_boole: false, boole_freq: 0, boole_tl: 3600, use_cr: false
         # Second configuration: DEbounds (z1lower + d1upper)
         # create_script instance, early_combo: true, use_de: true, use_boole: false, boole_freq: 0, boole_tl: 3600, use_cr: false
         # Third configuration: all bounds, i.e., DEbounds (z1lower + z1upper), BOOLEbound (z2lower), CRbound (z2upper)
@@ -90,8 +90,8 @@ def create_bb_eval_scripts
         # create_script instance, early_combo: true, use_de: true, use_boole: true, boole_freq: 1000, boole_tl: 1, use_cr: false
         # Fifth configuration: DEbounds (z1lower + d1upper) + CRbound (z2upper)
         # create_script instance, early_combo: true, use_de: true, use_boole: false, boole_freq: 0, boole_tl: 3600, use_cr: true
-        # Sixth configuration: DEbounds (z1lower + d1upper) + CRbound (z2upper) but *without* early combo
-        # create_script instance, early_combo: false, use_de: true, use_boole: false, boole_freq: 0, boole_tl: 3600, use_cr: true
+        # Sixth configuration: DEbounds (z1lower + d1upper) + BOOLEbound (z2lower) + CRbound (z2upper) but *without* early combo
+        # create_script instance, early_combo: false, early_runing: true, use_de: true, use_boole: true, boole_freq: 1000, boole_tl: 1, use_cr: true
     end
 end
 
