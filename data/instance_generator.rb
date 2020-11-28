@@ -1,6 +1,6 @@
 require 'simple-random'
 
-def generate_uu(n, k, c, b)
+def generate_type4(n, k, c, b)
     w = (k * c / n).floor.to_i
     weights = Array.new(n) {w}
 
@@ -8,68 +8,99 @@ def generate_uu(n, k, c, b)
     profits = Array.new(n) {[1, (w + r.normal(0, w/8.0)).ceil].max}.map(&:to_i)
 
     pprod = 0.5 * profits.min
-    probabilities = Array.new(n) do |i|
-        (rand() < b) ? pprod / profits[i] : 1
+    n_timebombs = (n * b).to_i
+    probabilities = Array.new(n_timebombs) do |i|
+        pprod / profits[i]
     end.map{|pi| pi.round(6)}
+
+    (n - n_timebombs).times do
+        probabilities << 1
+    end
 
     return weights, profits, probabilities
 end
 
-def generate_uv(n, k, c, b)
+def generate_type5(n, k, c, b)
     w = (k * c / n).floor.to_i
     weights = Array.new(n) {w}
 
     r = SimpleRandom.new
     profits = Array.new(n) {[1, (w + r.normal(0, w/8.0)).ceil].max}.map(&:to_i)
 
-    probabilities = Array.new(n) do
-        (rand() < b) ? (1.0 - r.beta(2, 10)) : 1
+    n_timebombs = (n * b).to_i
+    probabilities = Array.new(n_timebombs) do
+        1.0 - r.beta(2, 10)
     end.map{|pi| pi.round(6)}
+
+    (n - n_timebombs).times do
+        probabilities << 1
+    end
 
     return weights, profits, probabilities
 end
 
-def generate_vu(n, b)
+def generate_type1(n, b)
     f = Dir.glob(File.join('from-pisinger-hard', "knapPI_*_#{n}_*.csv")).to_a.sample
     i = rand(1..100)
     nn, capacity, weights, profits = get_pis_instance(f, i)
 
     raise "Wrong n from Pisinger instance (exp #{n}, got #{nn})!" if n != nn
+
+    weights, profits = weights.zip(profits).shuffle.transpose
 
     pprod = 0.5 * profits.min
-    probabilities = Array.new(n) do |i|
-        (rand() < b) ? pprod / profits[i] : 1
+    n_timebombs = (n * b).ceil.to_i
+    probabilities = Array.new(n_timebombs) do |i|
+        pprod / profits[i]
     end.map{|pi| pi.round(6)}
+
+    (n - n_timebombs).times do
+        probabilities << 1
+    end
 
     return weights, profits, probabilities, capacity
 end
 
-def generate_vv(n, b)
+def generate_type2(n, b)
     f = Dir.glob(File.join('from-pisinger-hard', "knapPI_*_#{n}_*.csv")).to_a.sample
     i = rand(1..100)
     nn, capacity, weights, profits = get_pis_instance(f, i)
 
     raise "Wrong n from Pisinger instance (exp #{n}, got #{nn})!" if n != nn
 
+    weights, profits = weights.zip(profits).shuffle.transpose
+
     r = SimpleRandom.new
-    probabilities = Array.new(n) do
-        (rand() < b) ? (1.0 - r.beta(2, 10)) : 1
+    n_timebombs = (n * b).ceil.to_i
+    probabilities = Array.new(n_timebombs) do
+        1.0 - r.beta(2, 10)
     end.map{|pi| pi.round(6)}
+
+    (n - n_timebombs).times do
+        probabilities << 1
+    end
 
     return weights, profits, probabilities, capacity
 end
 
-def generate_c(n, b)
+def generate_type3(n, b)
     f = Dir.glob(File.join('from-pisinger-hard', "knapPI_*_#{n}_*.csv")).to_a.sample
     i = rand(1..100)
     nn, capacity, weights, profits = get_pis_instance(f, i)
 
     raise "Wrong n from Pisinger instance (exp #{n}, got #{nn})!" if n != nn
 
+    weights, profits = weights.zip(profits).shuffle.transpose
+
     r = SimpleRandom.new
+    n_timebombs = (n * b).ceil.to_i
     probabilities = Array.new(n) do
-        (rand() < b) ? (1.0 - r.beta(2, 10)) : 1
+        1.0 - r.beta(2, 10)
     end.map{|pi| pi.round(6)}
+
+    (n - n_timebombs).times do
+        probabilities << 1
+    end
 
     profits = profits.each_with_index.map do |p, id|
         p * (1 + 2 * (1 - probabilities[id]))
@@ -116,18 +147,15 @@ def print_instance(filename, n, c, w, p, pi)
     File.write(filename, str)
 end
 
-def generate_all_uu
-    c = 100000
+def generate_all_type4
+    c = 10000
 
     [100, 500, 1000, 5000].each do |n|
-        [1.6, 1.8, 2.0, 2.2, 2.4].each do |k|
-            bs = [0.05, 0.1, 0.2, 0.5]
-            bs << 0.01 if n >= 1000
-
-            bs.each do |b|
+        [1.6, 2.0, 2.4].each do |k|
+            [0.1, 0.2, 0.5].each do |b|
                 1.upto(5) do |inst_n|
-                    w, p, pi = generate_uu(n, k, c, b)
-                    filename = "uu-#{n}-#{k}-#{b}-#{inst_n}.txt"
+                    w, p, pi = generate_type4(n, k, c, b)
+                    filename = "type4-#{n}-#{k}-#{b}-#{inst_n}.txt"
                     filename = File.join('generated-instances', filename)
                     print_instance(filename, n, c, w, p, pi)
                 end
@@ -136,18 +164,15 @@ def generate_all_uu
     end
 end
 
-def generate_all_uv
-    c = 100000
+def generate_all_type5
+    c = 10000
 
     [100, 500, 1000, 5000].each do |n|
-        [1.6, 1.8, 2.0, 2.2, 2.4].each do |k|
-            bs = [0.05, 0.1, 0.2, 0.5]
-            bs << 0.01 if n >= 1000
-
-            bs.each do |b|
+        [1.6, 2.0, 2.4].each do |k|
+            [0.1, 0.2, 0.5].each do |b|
                 1.upto(5) do |inst_n|
-                    w, p, pi = generate_uv(n, k, c, b)
-                    filename = "uv-#{n}-#{k}-#{b}-#{inst_n}.txt"
+                    w, p, pi = generate_type5(n, k, c, b)
+                    filename = "type5-#{n}-#{k}-#{b}-#{inst_n}.txt"
                     filename = File.join('generated-instances', filename)
                     print_instance(filename, n, c, w, p, pi)
                 end
@@ -156,15 +181,12 @@ def generate_all_uv
     end
 end
 
-def generate_all_vu
+def generate_all_type1
     [100, 500, 1000, 5000].each do |n|
-        bs = [0.05, 0.1, 0.2, 0.5]
-        bs << 0.01 if n >= 1000
-
-        bs.each do |b|
-            1.upto(25) do |inst_n|
-                w, p, pi, c = generate_vu(n, b)
-                filename = "vu-#{n}-0-#{b}-#{inst_n}.txt"
+        [0.1, 0.2, 0.5].each do |b|
+            1.upto(10) do |inst_n|
+                w, p, pi, c = generate_type1(n, b)
+                filename = "type1-#{n}-0-#{b}-#{inst_n}.txt"
                 filename = File.join('generated-instances', filename)
                 print_instance(filename, n, c, w, p, pi)
             end
@@ -172,15 +194,12 @@ def generate_all_vu
     end
 end
 
-def generate_all_vv
+def generate_all_type2
     [100, 500, 1000, 5000].each do |n|
-        bs = [0.05, 0.1, 0.2, 0.5]
-        bs << 0.01 if n >= 1000
-
-        bs.each do |b|
-            1.upto(25) do |inst_n|
-                w, p, pi, c = generate_vv(n, b)
-                filename = "vv-#{n}-0-#{b}-#{inst_n}.txt"
+        [0.1, 0.2, 0.5].each do |b|
+            1.upto(10) do |inst_n|
+                w, p, pi, c = generate_type2(n, b)
+                filename = "type2-#{n}-0-#{b}-#{inst_n}.txt"
                 filename = File.join('generated-instances', filename)
                 print_instance(filename, n, c, w, p, pi)
             end
@@ -188,18 +207,21 @@ def generate_all_vv
     end
 end
 
-def generate_all_c
+def generate_all_type3
     [100, 500, 1000, 5000].each do |n|
-        bs = [0.05, 0.1, 0.2, 0.5]
-        bs << 0.01 if n >= 1000
-
-        bs.each do |b|
-            1.upto(25) do |inst_n|
-                w, p, pi, c = generate_vv(n, b)
-                filename = "c-#{n}-0-#{b}-#{inst_n}.txt"
+        [0.1, 0.2, 0.5].each do |b|
+            1.upto(10) do |inst_n|
+                w, p, pi, c = generate_type3(n, b)
+                filename = "type3-#{n}-0-#{b}-#{inst_n}.txt"
                 filename = File.join('generated-instances', filename)
                 print_instance(filename, n, c, w, p, pi)
             end
         end
     end
 end
+
+generate_all_type1
+generate_all_type2
+generate_all_type3
+generate_all_type4
+generate_all_type5
