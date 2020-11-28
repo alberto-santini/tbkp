@@ -46,11 +46,11 @@ unless ARGV.size == 2
     puts "Usage: dp_generate_scripts.rb [INSTANCE_TYPE] [INSTANCE_SIZE]"
 end
 
-unless ['c', 'uu', 'uv', 'vu', 'vv'].include? ARGV[0]
+unless ['type1', 'type2', 'type3', 'type4', 'type5'].include? ARGV[0]
     puts "Wrong instance type: #{ARGV[0]}"
 end
 
-unless ARGV[1].to_i.to_s == ARGV[1]
+unless [100, 500, 1000, 5000].include? ARGV[1].to_i
     puts "Wrong instance size: #{ARGV[1]}"
 end
 
