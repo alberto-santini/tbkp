@@ -9,10 +9,10 @@
 #include <combo.h>
 #include <assert.h>
 
-#define EPS 1e-6f
+#define EPS 1e-6
 
 typedef struct {
-    float pi;
+    double pi;
     uint_fast32_t w;
     uint_fast32_t p;
 } Item;
@@ -28,7 +28,7 @@ static uint_fast32_t tb_items_ub(const TBKPInstance *const inst) {
     cmb_stype tot_p = 0;
     
     for(size_t i = 0u; i < inst->n_tb_items; ++i) {
-        assert(inst->probabilities[i] < 1.0f - EPS);
+        assert(inst->probabilities[i] < 1.0 - EPS);
         cmb_items[i] = (cmb_item){
             .p = (cmb_itype) inst->profits[i],
             .w = (cmb_itype) inst->weights[i],
@@ -63,7 +63,7 @@ static void sort_instance_by_increasing_probabilities(TBKPInstance* inst, Item* 
         inst->profits[i] = items[i].p;
         inst->probabilities[i] = items[i].pi;
 
-        if(items[i].pi < 1.0f) {
+        if(items[i].pi < 1.0) {
             inst->last_tb_item_index = i;
         }
     }
@@ -119,7 +119,7 @@ TBKPInstance* tbkp_instance_read(const char *const filename) {
     }
 
     for(size_t i = 0; i < instance->n_items; ++i) {
-        n_read = fscanf(fd, "%" SCNuFAST32 " %" SCNuFAST32 " %f",
+        n_read = fscanf(fd, "%" SCNuFAST32 " %" SCNuFAST32 " %lf",
                 &(items[i].w), &(items[i].p), &(items[i].pi));
 
         if(n_read != 3) {
@@ -133,12 +133,12 @@ TBKPInstance* tbkp_instance_read(const char *const filename) {
             exit(EXIT_FAILURE);
         }
 
-        if(items[i].pi < 0.0f || items[i].pi > 1.0f) {
+        if(items[i].pi < 0.0 || items[i].pi > 1.0) {
             printf("Wrong probability for item %zu: %f\n", i, instance->probabilities[i]);
             exit(EXIT_FAILURE);
         }
 
-        if(items[i].pi < 1.0f - EPS) {
+        if(items[i].pi < 1.0 - EPS) {
             ++(instance->n_tb_items);
             instance->tb_tot_weight += items[i].w;
         } else {

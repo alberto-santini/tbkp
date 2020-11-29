@@ -18,7 +18,7 @@ TBKPDeterministicEqSol tbkp_desol_get(
     clock_t start_time = clock();
 
     // Multiplier we need because COMBO only takes integer profits!
-    const float cmb_multiplier = 10000.0f;
+    const double cmb_multiplier = 10000.0;
 
     cmb_item* cmb_items = malloc(n_items * sizeof(*cmb_items));
 
@@ -31,7 +31,7 @@ TBKPDeterministicEqSol tbkp_desol_get(
     cmb_stype sump = 0;
 
     for(size_t i = 0; i < n_items; ++i) {
-        const float real_w = (float)(instance->profits[items[i]]) * instance->probabilities[items[i]];
+        const double real_w = (double)(instance->profits[items[i]]) * instance->probabilities[items[i]];
         cmb_items[i] = (cmb_item) {
             .p = (cmb_itype) (real_w * cmb_multiplier),
             .w = (cmb_itype) instance->weights[items[i]],
@@ -55,7 +55,7 @@ TBKPDeterministicEqSol tbkp_desol_get(
         cmb_ub = combo(&cmb_items[0], &cmb_items[n_items - 1], (cmb_stype)capacity, 0, INT32_MAX, true, false);
     }
 
-    const float ub = (float)cmb_ub / cmb_multiplier;
+    const double ub = (double)cmb_ub / cmb_multiplier;
 
     size_t n_ub_items = 0;
     uint_fast32_t lb_sum = 0;
@@ -79,7 +79,7 @@ TBKPDeterministicEqSol tbkp_desol_get(
     // We use this loop to create the list of the items packed by COMBO, but also to compute
     // the second part of the 01-KP objective function (the product of the probabilities).
     size_t curr_id = 0u;
-    float lb_prod = 1.0f;
+    double lb_prod = 1.0;
     for(size_t i = 0; i < n_items; ++i) {
         if(cmb_items[i].x) {
             ub_items[curr_id++] = items[cmb_items[i].pos];
@@ -98,7 +98,7 @@ TBKPDeterministicEqSol tbkp_desol_get(
 
     return (TBKPDeterministicEqSol) {
         .ub = ub,
-        .lb = (float) lb_sum * lb_prod,
+        .lb = (double) lb_sum * lb_prod,
         .lb_sum_profits = lb_sum,
         .lb_product_probabilities = lb_prod,
         .n_items = n_ub_items,

@@ -11,51 +11,51 @@
  * LOCAL HELPER FUNCTIONS                                   *
  ************************************************************/
 
-static float bin_search(size_t n, float* x, float* d, uint_fast32_t *p, float* q) {
+static double bin_search(size_t n, double* x, double* d, uint_fast32_t *p, double* q) {
     // Next point is z = x + lambda *x   with lambda \in [0,1]
-    float bestobj = 0.0f;
-    float bestl = -1.0f;
+    double bestobj = 0.0;
+    double bestl = -1.0;
 
-    float ptot = 0.0f;
-    float product = 1.0f;
+    double ptot = 0.0;
+    double product = 1.0;
 
     // Iterative loop
-    float l0 = 0.0f;
-    float l1 = 1.0f;
+    double l0 = 0.0;
+    double l1 = 1.0;
     while(l1 - l0 > EPSC) {
         // Define two lambda values in the current interval
-        float lgap = l1 - l0;
-        float delta = lgap / 3;
-        float beta = l0 + delta;
-        float gamma = l0 + 2 * delta;
+        double lgap = l1 - l0;
+        double delta = lgap / 3;
+        double beta = l0 + delta;
+        double gamma = l0 + 2 * delta;
 
         // Evaluate the first point
-        ptot = 0.0f;
-        product = 1.0f;
+        ptot = 0.0;
+        product = 1.0;
         for(size_t j = 0; j < n; j++) {
-            const float zj = x[j] + beta * d[j];
-            ptot += (float)(p[j]) * zj;
-            const float alpha = 1.0f - q[j] * zj;
+            const double zj = x[j] + beta * d[j];
+            ptot += (double)(p[j]) * zj;
+            const double alpha = 1.0 - q[j] * zj;
             product = product * alpha;
         }
 
-        float objbeta = ptot * product;
+        double objbeta = ptot * product;
         if(objbeta > bestobj) {
                 bestobj = objbeta;
                 bestl = beta;
         }
 
         // Evaluate the second point
-        ptot = 0.0f;
-        product = 1.0f;
+        ptot = 0.0;
+        product = 1.0;
         for(size_t j = 0; j < n; j++) {
-            const float zj = x[j] + gamma * d[j];
-            ptot += (float)(p[j]) * zj;
-            const float alpha = 1.0f - q[j] * zj;
+            const double zj = x[j] + gamma * d[j];
+            ptot += (double)(p[j]) * zj;
+            const double alpha = 1.0 - q[j] * zj;
             product = product * alpha;
         }
 
-        float objgamma = ptot * product;
+        double objgamma = ptot * product;
         if(objgamma > bestobj) {
             bestobj = objgamma;
             bestl = gamma;
@@ -73,7 +73,7 @@ static float bin_search(size_t n, float* x, float* d, uint_fast32_t *p, float* q
     return bestl;
 }
 
-static void solve_Dantzig(size_t n, float* p, uint_fast32_t* w, uint_fast32_t c, const TBKPBBFixedStatus* xbra, float* y) {
+static void solve_Dantzig(size_t n, double* p, uint_fast32_t* w, uint_fast32_t c, const TBKPBBFixedStatus* xbra, double* y) {
     uint_fast32_t cres = c;
     int* flag = (int*) calloc(n, sizeof(int));
 
@@ -96,11 +96,11 @@ static void solve_Dantzig(size_t n, float* p, uint_fast32_t* w, uint_fast32_t c,
             break;
         }
 
-        float maxratio = 0.0;
+        double maxratio = 0.0;
         int index = -1;
         for(size_t j = 0; j < n; j++) {
             if(flag[j] == 0) {
-                const float ratio = (float)(p[j]) / (float)(w[j]);
+                const double ratio = (double)(p[j]) / (double)(w[j]);
                 if(ratio > maxratio) {
                     maxratio = ratio;
                     index = (int)j;
@@ -114,10 +114,10 @@ static void solve_Dantzig(size_t n, float* p, uint_fast32_t* w, uint_fast32_t c,
 
         flag[index] = 1;
         if(cres > w[index]) {
-            y[index] = 1.0f;
+            y[index] = 1.0;
             cres -= w[index];
         } else {
-            y[index] = 1.0f * (float)(cres) / (float)(w[index]);
+            y[index] = 1.0 * (double)(cres) / (double)(w[index]);
             cres = 0;
         }
     }
@@ -132,9 +132,9 @@ TBKPContinuousRelaxationSol tbkp_crsol_get(
     clock_t start_time = clock();
 
     size_t n = instance->n_items;
-    float* xc = (float*) calloc(n, sizeof(float)); // x variables
-    float* a = (float*) calloc(n, sizeof(float)); // \alpha variables
-    float* q = (float*) calloc(n, sizeof(float)); // q probabilities
+    double* xc = (double*) calloc(n, sizeof(double)); // x variables
+    double* a = (double*) calloc(n, sizeof(double)); // \alpha variables
+    double* q = (double*) calloc(n, sizeof(double)); // q probabilities
 
     for(size_t j = 0; j < n; j++) {
         if(xbra[j] == 1) {
@@ -143,27 +143,27 @@ TBKPContinuousRelaxationSol tbkp_crsol_get(
             xc[j] = 0.0;
         }
 
-        a[j] = 1.0f;
-        q[j] = 1.0f - instance->probabilities[j];
+        a[j] = 1.0;
+        q[j] = 1.0 - instance->probabilities[j];
     }
 
-    float product = 1.0;
-    float ptot = 0.0;
-    float* g = (float*) calloc(n, sizeof(float)); // gradient
-    float* d = (float*) calloc(n, sizeof(float)); // improving direction (if any)
-    float* y = (float*) calloc(n, sizeof(float)); // next solution
-    float objval = 0.0;
+    double product = 1.0;
+    double ptot = 0.0;
+    double* g = (double*) calloc(n, sizeof(double)); // gradient
+    double* d = (double*) calloc(n, sizeof(double)); // improving direction (if any)
+    double* y = (double*) calloc(n, sizeof(double)); // next solution
+    double objval = 0.0;
 
     while(true) {
-        float oldobj = objval;
+        double oldobj = objval;
 
         // Compute the gradient
         product = 1.0;
         for(size_t j = 0; j < n; j++) {
-            product *= (1.0f - q[j]*xc[j]);
+            product *= (1.0 - q[j]*xc[j]);
         }
         for(size_t j = 0; j < n; j++) {
-            const float value = (float)(instance->profits[j]) - ptot * q[j] / (1.0f - q[j] * xc[j]);
+            const double value = (double)(instance->profits[j]) - ptot * q[j] / (1.0 - q[j] * xc[j]);
             g[j] = product * value;
         }
         
@@ -174,7 +174,7 @@ TBKPContinuousRelaxationSol tbkp_crsol_get(
         }
 
         // Check if the direction is improving
-        float delta = 0.0f;
+        double delta = 0.0;
         for(size_t j = 0; j < n; j++) {
             delta += g[j] * d[j];
         }
@@ -183,15 +183,15 @@ TBKPContinuousRelaxationSol tbkp_crsol_get(
         }
 
         // Determine the optimal value for parameter \lambda
-        float lambda = bin_search(n, xc, d, instance->profits, q);
+        double lambda = bin_search(n, xc, d, instance->profits, q);
 
         // Determine the next point
-        ptot = 0.0f;
-        product = 1.0f;
+        ptot = 0.0;
+        product = 1.0;
         for(size_t j = 0; j < n; j++) {
-            const float zj = xc[j] +  lambda * d[j];
-            ptot += (float)(instance->profits[j]) * zj;
-            a[j] = 1.0f - q[j] * zj;
+            const double zj = xc[j] +  lambda * d[j];
+            ptot += (double)(instance->profits[j]) * zj;
+            a[j] = 1.0 - q[j] * zj;
             product = product * a[j];
             xc[j] = zj;
         }
@@ -206,11 +206,11 @@ TBKPContinuousRelaxationSol tbkp_crsol_get(
     _Bool integer_sol = true;
     size_t n_items = 0u;
     for(size_t i = 0u; i < n; ++i) {    
-        if((xc[i] > EPSC) && (xc[i] < 1.0f - EPSC)) {
+        if((xc[i] > EPSC) && (xc[i] < 1.0 - EPSC)) {
             integer_sol = false;
         }
 
-        if(xc[i] > 1.0f - EPSC) {
+        if(xc[i] > 1.0 - EPSC) {
             ++n_items;
         }
     }
@@ -222,7 +222,7 @@ TBKPContinuousRelaxationSol tbkp_crsol_get(
 
         size_t id = 0u;
         for(size_t i = 0u; i < n; ++i) {
-            if(xc[i] > 1.0f - EPSC) {
+            if(xc[i] > 1.0 - EPSC) {
                 assert(id < n_items);
                 items[id++] = i;
             }

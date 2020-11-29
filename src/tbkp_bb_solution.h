@@ -15,13 +15,13 @@ typedef struct {
     _Bool* x;
 
     /** Product-of-probabilities component of the objective function. */
-    float prod_probabilities;
+    double prod_probabilities;
 
     /** Sum-of-profits component of the objective function. */
     uint_fast32_t sum_profits;
 
     /** Objective value. */
-    float value;
+    double value;
 } TBKPBBSolution;
 
 TBKPBBSolution* tbkp_sol_init(const TBKPInstance* instance);

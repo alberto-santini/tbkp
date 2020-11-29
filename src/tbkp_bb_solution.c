@@ -26,9 +26,9 @@ TBKPBBSolution* tbkp_sol_init(const TBKPInstance *const instance) {
         solution->x[i] = false;
     }
 
-    solution->prod_probabilities = 1.0f;
+    solution->prod_probabilities = 1.0;
     solution->sum_profits = 0u;
-    solution->value = 0.0f;
+    solution->value = 0.0;
 
     return solution;
 }

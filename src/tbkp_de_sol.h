@@ -15,18 +15,18 @@
  */
 typedef struct {
     /** Upper bound, given by the optimal solution of the deterministic equivalent 0-1 KP. */
-    float ub;
+    double ub;
 
     /** Lower bound, obtained calculating the TBKP objective function on the solution
      *  returned by the deterministic equivalent 0-1 KP.
      */
-    float lb;
+    double lb;
 
     /** Part of the LB coming from summing the profits. */
     uint_fast32_t lb_sum_profits;
 
     /** Part of the LB coming from multiplying the probabilities. */
-    float lb_product_probabilities;
+    double lb_product_probabilities;
 
     /** Number of items packed in the solution of the deterministic equivalent 0-1 KP. */
     size_t n_items;

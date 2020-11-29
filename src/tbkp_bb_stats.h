@@ -16,14 +16,14 @@ typedef struct {
     clock_t end_time;
     float elapsed_time;
 
-    float ub; /* Starts at value -1.0f */
-    float lb;
-    float gap;
+    double ub; /* Starts at value -1.0 */
+    double lb;
+    double gap;
 
-    float boole_lb_at_root;
-    float de_lb_at_root;
-    float de_ub_at_root;
-    float cr_ub_at_root;
+    double boole_lb_at_root;
+    double de_lb_at_root;
+    double de_ub_at_root;
+    double cr_ub_at_root;
 
     float time_to_compute_boole_at_root;
     float time_to_compute_de_at_root;

@@ -16,7 +16,7 @@ TBKPBBStats tbkp_bb_stats_init(void) {
             .elapsed_time = 0.0f,
             .lb = INITIAL_LB_PLACEHOLDER,
             .ub = INITIAL_UB_PLACEHOLDER,
-            .gap = FLT_MAX,
+            .gap = DBL_MAX,
             .boole_lb_at_root = INITIAL_LB_PLACEHOLDER,
             .de_lb_at_root = INITIAL_LB_PLACEHOLDER,
             .de_ub_at_root = INITIAL_UB_PLACEHOLDER,
@@ -29,7 +29,7 @@ TBKPBBStats tbkp_bb_stats_init(void) {
 }
 
 void tbkp_bb_stats_print(const TBKPBBStats *const stats) {
-    printf("UB: %.3f; LB: %.3f; Gap: %.3f%%\n", stats->ub, stats->lb, stats->gap * 100.0f);
+    printf("UB: %.3f; LB: %.3f; Gap: %.3f%%\n", stats->ub, stats->lb, stats->gap * 100.0);
     printf("Elapsed time: %.3f seconds\n", stats->elapsed_time);
     printf("Explored %zu B&B nodes\n", stats->n_nodes);
 }
@@ -66,7 +66,7 @@ void tbkp_bb_stats_to_file(
     fprintf(f, "\n");
 
     fprintf(f, "%d,%zu,%.3f,%.3f,%.3f,%.3f,%zu",
-            params->use_early_combo, params->max_nodes, stats->ub, stats->lb, stats->gap * 100.0f, stats->elapsed_time, stats->n_nodes);
+            params->use_early_combo, params->max_nodes, stats->ub, stats->lb, stats->gap * 100.0, stats->elapsed_time, stats->n_nodes);
 
     if(params->use_cr_bound || params->use_all_bounds_at_root) {
         fprintf(f, ",%.3f,%.3f", stats->cr_ub_at_root, stats->time_to_compute_cr_at_root);

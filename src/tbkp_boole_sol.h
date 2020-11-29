@@ -25,13 +25,13 @@ typedef struct {
      *  function using the items packed in the Boole BQ problem, which is what
      *  we store in this variable.
      */
-    float lb;
+    double lb;
 
     /** Part of the LB coming from the sum of the profits. */
     uint_fast32_t lb_sum_profits;
 
     /** Part of the LB coming from the product of the probabilities. */
-    float lb_product_probabilities;
+    double lb_product_probabilities;
 
     /** Number of items packed in the solution of the Boole BQ problem. */
     size_t n_items;

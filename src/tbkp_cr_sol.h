@@ -10,7 +10,7 @@
  */
 typedef struct {
     /** Upper bound, given by the optimal solution of the CR. */
-    float ub;
+    double ub;
 
     /** If the solution of the continuous relaxation is integer, the UB is also a LB.
      */
@@ -20,7 +20,7 @@ typedef struct {
     uint_fast32_t lb_sum_profits;
 
     /** If the solution is integer, part of the LB coming from multiplying the probabilities. */
-    float lb_product_probabilities;
+    double lb_product_probabilities;
 
     /** If the solution is integer, this is the number of items packed. */
     size_t n_items;

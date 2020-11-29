@@ -12,7 +12,7 @@ typedef struct {
     uint_fast32_t capacity;
     uint_fast32_t* weights;
     uint_fast32_t* profits;
-    float* probabilities;
+    double* probabilities;
 
     uint_fast32_t n_tb_items;
     uint_fast32_t n_det_items;

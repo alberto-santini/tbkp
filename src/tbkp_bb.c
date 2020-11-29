@@ -19,14 +19,14 @@
 #endif
 
 #define BB_VERBOSITY_INFO 1000
-#define EPS 1e-6f
+#define EPS 1e-6
 
 /************************************************************
  * LOCAL HELPER FUNCTIONS                                   *
  ************************************************************/
 
 static void tbkp_bb_solve_node(
-        TBKPBBAlgStatus* status, float parent_ub, TBKPBBResidualInstance residual, _Bool early_combo);
+        TBKPBBAlgStatus* status, double parent_ub, TBKPBBResidualInstance residual, _Bool early_combo);
 
 /** Finds the next time-bomb item to branch on. If no such item exists (because we either
  *  ran out of TB items, or there is no item which fits in the residual capacity), returns
@@ -39,14 +39,14 @@ static void tbkp_bb_solve_node(
 static int tbkp_bb_branch_item(const TBKPBBAlgStatus *const status, const TBKPBBResidualInstance *const residual) {
     // Find the first uncertain item that is not fixed and fits in the residual capacity
     for(size_t i = 0u; i < status->instance->n_items; ++i) {
-        if(status->instance->probabilities[i] >= 1.0f - EPS) continue;
+        if(status->instance->probabilities[i] >= 1.0 - EPS) continue;
         if(status->x[i] != UNFIXED) continue;
         if(status->instance->weights[i] > residual->res_capacity) continue;
 
         if(status->params->use_early_pruning) {
             // Pruning: skip branch in case the solution value cannot increase
-            float scorej = ((float)status->instance->profits[i] * status->instance->probabilities[i]) /
-                    (1.0f - status->instance->probabilities[i]);
+            double scorej = ((double)status->instance->profits[i] * status->instance->probabilities[i]) /
+                    (1.0 - status->instance->probabilities[i]);
 
             if(scorej < residual->sum_profits) {
                 continue;
@@ -62,15 +62,18 @@ static int tbkp_bb_branch_item(const TBKPBBAlgStatus *const status, const TBKPBB
 /**
  * Checks if timeout occurred while exploring the B&B tree.
  * It updates the TBKPBBStats object with
- * @param status    Current state of the algorithm.
- * @param parent_ub Upper bound at the parent node.
- * @return          Returns true iff a timeout occurred.
+ * @param status        Current state of the algorithm.
+ * @param parent_ub     Upper bound at the parent node.
+ * @param force_timeout Forces assuming a timeout even if not true. In this way, we can
+ *                      recycle this function for the case in which we reached the max
+ *                      number of nodes to explore, as well as for real timeouts.
+ * @return              Returns true iff a timeout occurred.
  */
-static _Bool timeout(TBKPBBAlgStatus* status, float parent_ub) {
+static _Bool timeout(TBKPBBAlgStatus* status, double parent_ub, _Bool force_timeout) {
     clock_t current_time = clock();
     float el_time = (float)(current_time - status->stats->start_time) / CLOCKS_PER_SEC;
 
-    if(el_time > status->params->timeout) {
+    if(force_timeout || el_time > status->params->timeout) {
         // Upon timeout, the UB is the worst UB of the open nodes.
         if( parent_ub != INITIAL_UB_PLACEHOLDER &&
             (status->stats->ub == INITIAL_UB_PLACEHOLDER || parent_ub > status->stats->ub + EPS))
@@ -132,8 +135,8 @@ static size_t* residual_instance(const TBKPBBAlgStatus *const status, size_t n_u
  * LB.
  */
 typedef struct {
-    float local_ub;
-    float local_lb;
+    double local_ub;
+    double local_lb;
     _Bool should_prune;
 } DEBounds;
 
@@ -145,7 +148,7 @@ typedef struct {
  * pruned - i.e., because the local UB is worse than the best-known LB.
  */
 typedef struct {
-    float local_ub;
+    double local_ub;
     _Bool is_lb;
     _Bool should_prune;
 } CRBound;
@@ -163,7 +166,7 @@ static void update_best_solution_from_de(
         TBKPBBAlgStatus* status,
         const TBKPBBResidualInstance *const residual,
         const TBKPDeterministicEqSol *const desol,
-        float local_lb
+        double local_lb
 ) {
     status->solution->value = local_lb;
     status->solution->prod_probabilities = desol->lb_product_probabilities * residual->prod_probabilities;
@@ -222,7 +225,7 @@ static void update_best_solution_from_de_alone(
 static void update_best_solution_from_cr(
         TBKPBBAlgStatus* status,
         const TBKPContinuousRelaxationSol *const crsol,
-        float local_lb
+        double local_lb
 ) {
     status->solution->value = local_lb;
     status->solution->prod_probabilities = crsol->lb_product_probabilities;
@@ -256,7 +259,7 @@ static void update_best_solution_from_boole(
         TBKPBBAlgStatus* status,
         const TBKPBBResidualInstance *const residual,
         const TBKPBooleSol *const boolesol,
-        float local_lb
+        double local_lb
 ) {
     status->solution->value = local_lb;
     status->solution->prod_probabilities = boolesol->lb_product_probabilities * residual->prod_probabilities;
@@ -310,7 +313,7 @@ static CRBound get_cr_bound(
 
     // Check if the solution of the continuous relaxation is integer and improves
     if(crsol.is_lb) {
-        const float local_lb = crsol.ub;
+        const double local_lb = crsol.ub;
 
         if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
             printf("\t\tLB (continuous relaxation): %f (vs %f)\n", crsol.ub, status->solution->value);
@@ -356,7 +359,7 @@ static DEBounds get_de_bounds(
     status->stats->tot_time_de += desol.time_to_compute;
 
     // Compute the local upper bound and possibly kill the node
-    float local_ub = ((float)residual->sum_profits + desol.ub) * residual->prod_probabilities;
+    double local_ub = ((double)residual->sum_profits + desol.ub) * residual->prod_probabilities;
     if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
         printf("\t\tUB (deterministic relaxation): %f\n", local_ub);
     }
@@ -367,7 +370,7 @@ static DEBounds get_de_bounds(
         return (DEBounds){.local_ub = local_ub, .local_lb = 0.0f, .should_prune = true};
     }
     
-    float local_lb = (float) (desol.lb_sum_profits + residual->sum_profits) *
+    double local_lb = (double) (desol.lb_sum_profits + residual->sum_profits) *
                      (desol.lb_product_probabilities * residual->prod_probabilities);
 
     // If the heuristic solution obtained with the deterministic bound is better
@@ -417,7 +420,7 @@ static DEBounds get_de_bounds(
  * @param n_unfixed_items       Number of unfixed items in the current residual instance.
  * @return                      The lower bound.
  */
-float get_boole_bound(
+double get_boole_bound(
         TBKPBBAlgStatus *const status,
         const TBKPBBResidualInstance *const residual,
         size_t current_node,
@@ -431,7 +434,7 @@ float get_boole_bound(
     ++(status->stats->n_boole_called);
     status->stats->tot_time_boole += boolesol.time_to_compute;
 
-    float local_lb = (float) (boolesol.lb_sum_profits + residual->sum_profits) *
+    double local_lb = (double) (boolesol.lb_sum_profits + residual->sum_profits) *
                      (boolesol.lb_product_probabilities * residual->prod_probabilities);
 
     if(BB_VERBOSITY_CURRENT > BB_VERBOSITY_INFO) {
@@ -463,7 +466,7 @@ float get_boole_bound(
  * @param status                Current state of the algorithm.
  * @param residual              Current residual instance.
  */
-static float solve_det_kp(TBKPBBAlgStatus* status, const TBKPBBResidualInstance *const residual) {
+static double solve_det_kp(TBKPBBAlgStatus* status, const TBKPBBResidualInstance *const residual) {
     size_t n_det_items = 0u;
     for(size_t i = 0; i < status->instance->n_items; ++i) {
         if(status->instance->probabilities[i] >= 1.0 - EPS) {
@@ -516,7 +519,7 @@ static float solve_det_kp(TBKPBBAlgStatus* status, const TBKPBBResidualInstance 
 
         // Compute the new solution's value
         uint_fast32_t sumprof = residual->sum_profits + (uint_fast32_t)myz;
-        float zz = (float)sumprof * residual->prod_probabilities;
+        double zz = (double)sumprof * residual->prod_probabilities;
 
         if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
                 printf("\tCOMBO solution: %.3f\n", zz);
@@ -570,7 +573,7 @@ static float solve_det_kp(TBKPBBAlgStatus* status, const TBKPBBResidualInstance 
 static void branch(
         TBKPBBAlgStatus* status,
         TBKPBBResidualInstance residual,
-        float parent_ub,
+        double parent_ub,
         size_t current_node,
         int jbra
 ) {
@@ -580,6 +583,8 @@ static void branch(
             printf("Maximum number of nodes (%zu) reached!\n", status->params->max_nodes);
         }
 
+        // Use timeout to update the ub
+        timeout(status, parent_ub, true);
         return;
     }
 
@@ -615,6 +620,8 @@ static void branch(
             printf("Maximum number of nodes (%zu) reached!\n", status->params->max_nodes);
         }
 
+        // Use timeout to update the ub
+        timeout(status, parent_ub, true);
         return;
     }
 
@@ -653,11 +660,11 @@ static void branch(
  */
 static void tbkp_bb_solve_node(
         TBKPBBAlgStatus* status,
-        float parent_ub,
+        double parent_ub,
         TBKPBBResidualInstance residual,
         _Bool early_combo)
 {
-    if(timeout(status, parent_ub)) {
+    if(timeout(status, parent_ub, false)) {
         return;
     }
 
@@ -680,8 +687,8 @@ static void tbkp_bb_solve_node(
         printf("\tNumber of unfixed items: %zu\n", n_unfixed_items);
     }    
 
-    float new_ub = FLT_MAX;
-    float new_lb = 0.0f;
+    double new_ub = DBL_MAX;
+    double new_lb = 0.0;
     _Bool use_all_bounds = status->params->use_all_bounds_at_root && (current_node == 1u);
 
     /** START COMPUTATION OF NEW UBs AND/OR LBs AT THIS NODE. **/
@@ -736,7 +743,7 @@ static void tbkp_bb_solve_node(
 
     assert(current_node >= 1u);
     if((status->params->use_boole_bound && (current_node - 1u) % status->params->boole_bound_frequency == 0u) || use_all_bounds) {
-        float boole_lb = get_boole_bound(status, &residual, current_node, items, n_unfixed_items);
+        double boole_lb = get_boole_bound(status, &residual, current_node, items, n_unfixed_items);
 
         if(boole_lb > new_lb) {
             // Local LB improved.
@@ -753,7 +760,7 @@ static void tbkp_bb_solve_node(
             printf("[NODE %zu] Calling COMBO\n", current_node);
         }
 
-        float cmb_lb = solve_det_kp(status, &residual);
+        double cmb_lb = solve_det_kp(status, &residual);
 
         if(cmb_lb > new_lb) {
             // Local LB improved.
@@ -764,13 +771,13 @@ static void tbkp_bb_solve_node(
     /** END COMPUTATION OF NEW UBs AND/OR LBs AT THIS NODE. **/
 
     // Check if exploring this node gave a tighter UB than what we had.
-    float local_ub = parent_ub;    
+    double local_ub = parent_ub;    
     if(local_ub == INITIAL_UB_PLACEHOLDER || new_ub < local_ub - EPS) {
         local_ub = new_ub;
     }
 
     // Nothing to check here. Just renaming new_lb to local_lb for consistency.
-    const float local_lb = new_lb;
+    const double local_lb = new_lb;
 
     if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
         printf("\tLocal LB for this node: %.6f\n", local_lb);
@@ -831,18 +838,18 @@ TBKPBBSolution* tbkp_branch_and_bound(const TBKPInstance *const instance, TBKPBB
     size_t n_nodes = 0u;
 
     TBKPBBAlgStatus status = {
-            .instance = instance,
-            .params = params,
-            .solution = solution,
-            .x = x,
-            .stats = stats,
-            .n_nodes = &n_nodes
+        .instance = instance,
+        .params = params,
+        .solution = solution,
+        .x = x,
+        .stats = stats,
+        .n_nodes = &n_nodes
     };
 
     TBKPBBResidualInstance residual = {
-            .prod_probabilities = 1.0f,
-            .sum_profits = 0u,
-            .res_capacity = instance->capacity
+        .prod_probabilities = 1.0,
+        .sum_profits = 0u,
+        .res_capacity = instance->capacity
     };
 
     if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
@@ -864,7 +871,7 @@ TBKPBBSolution* tbkp_branch_and_bound(const TBKPInstance *const instance, TBKPBB
     if(stats->ub == INITIAL_UB_PLACEHOLDER) {
         // UB was never updated or no open node left
 
-        if(stats->elapsed_time < params->timeout) {
+        if(stats->elapsed_time < params->timeout && params->max_nodes == 0u) {
             // Instance solved to optimality
             stats->ub = stats->lb;
         } else {

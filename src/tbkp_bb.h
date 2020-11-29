@@ -22,7 +22,7 @@ typedef struct {
 } TBKPBBAlgStatus;
 
 typedef struct {
-    float prod_probabilities;
+    double prod_probabilities;
     uint_fast32_t sum_profits;
     uint_fast32_t res_capacity;
 } TBKPBBResidualInstance;
@@ -36,7 +36,7 @@ typedef struct {
  */
 TBKPBBSolution* tbkp_branch_and_bound(const TBKPInstance* instance, TBKPBBStats* stats, TBKPParams* params);
 
-float solve_cont(const TBKPInstance *const instance, TBKPBBFixedStatus* xbra, double *xc);
+double solve_cont(const TBKPInstance *const instance, TBKPBBFixedStatus* xbra, double *xc);
 
 
 #endif //TBKP_TBKP_BB_H

@@ -411,19 +411,19 @@ void tbkp_boolesol_compute_exact_obj(
         const TBKPInstance *instance,
         TBKPBooleSol *sol)
 {
-    uint_fast32_t lb_sum = 0.0f;
+    uint_fast32_t lb_sum = 0.0;
 
     for(size_t i = 0u; i < sol->n_items; ++i) {
         lb_sum += instance->profits[sol->items[i]];
     }
 
-    float lb_prod = 1.0f;
+    double lb_prod = 1.0;
 
     for(size_t i = 0u; i < sol->n_items; ++i) {
         lb_prod *= instance->probabilities[sol->items[i]];
     }
 
-    sol->lb = (float)lb_sum * lb_prod;
+    sol->lb = (double)lb_sum * lb_prod;
     sol->lb_sum_profits = lb_sum;
     sol->lb_product_probabilities = lb_prod;
 }
