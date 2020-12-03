@@ -109,6 +109,9 @@ def create_bb_root_node_scripts(configuration)
         when 4
             # CRbound (z2upper)
             create_script instance, early_combo: false, early_pruning: false, use_de: false, use_boole: false, boole_freq: 0, boole_tl: 3600, use_cr: true, max_nodes: 1
+        when 5
+            # BOOLEbound 10 minutes (z2lower)
+            create_script instance, early_combo: false, early_pruning: false, use_de: false, use_boole: true, boole_freq: 1, boole_tl: 600, use_cr: false, max_nodes: 1
         end
     end
 end
