@@ -10,6 +10,8 @@
 #include <combo.h>
 #include <stdio.h>
 #include <time.h>
+#include <limits.h>
+#include <assert.h>
 
 TBKPDeterministicEqSol tbkp_desol_get(
         const TBKPInstance *const instance, size_t n_items,
@@ -18,7 +20,7 @@ TBKPDeterministicEqSol tbkp_desol_get(
     clock_t start_time = clock();
 
     // Multiplier we need because COMBO only takes integer profits!
-    const double cmb_multiplier = 10000.0;
+    const double cmb_multiplier = 1000.0;
 
     cmb_item* cmb_items = malloc(n_items * sizeof(*cmb_items));
 
@@ -29,6 +31,7 @@ TBKPDeterministicEqSol tbkp_desol_get(
 
     cmb_stype sumw = 0;
     cmb_stype sump = 0;
+    unsigned long long total_profit = 0ul;
 
     for(size_t i = 0; i < n_items; ++i) {
         const double real_w = (double)(instance->profits[items[i]]) * instance->probabilities[items[i]];
@@ -39,8 +42,16 @@ TBKPDeterministicEqSol tbkp_desol_get(
             .pos = i
         };
 
+        assert(cmb_items[i].p >= 0);
+        total_profit += (unsigned long long) cmb_items[i].p;
+
         sump += cmb_items[i].p;
         sumw += cmb_items[i].w;
+    }
+
+    if(total_profit > LONG_MAX) {
+        printf("Total profits (including multipliers) too large! Increase the size of int used by combo.\n");
+        exit(EXIT_FAILURE);
     }
 
     cmb_stype cmb_ub;
