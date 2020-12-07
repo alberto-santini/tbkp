@@ -155,7 +155,7 @@ end
 def print_instance(filename, n, c, w, p, pi)
     str = "#{n} #{c}\n"
     0.upto(n-1) do |i|
-        str += "#{w[i]} #{p[i]} #{pi[i]}\n"
+        str += "#{w[i]} #{p[i]} #{pi[i].round(3)}\n"
     end
     File.write(filename, str)
 end
