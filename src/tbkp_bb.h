@@ -11,6 +11,7 @@
 #include "tbkp_bb_stats.h"
 #include "tbkp_bb_defs.h"
 #include <stddef.h>
+#include <gurobi_c.h>
 
 typedef struct {
     const TBKPInstance* instance;
@@ -19,6 +20,7 @@ typedef struct {
     TBKPBBFixedStatus* x;
     TBKPBBStats* stats;
     size_t* n_nodes;
+    GRBmodel* boole_grb_model;
 } TBKPBBAlgStatus;
 
 typedef struct {

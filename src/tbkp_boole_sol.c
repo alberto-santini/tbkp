@@ -8,30 +8,23 @@
 #include <gurobi_c.h>
 #include <assert.h>
 #include <time.h>
+#include <stdbool.h>
 
 #define EPS 0.01
 
-TBKPBooleSol tbkp_boolesol_lin_gurobi_get(
-        const TBKPInstance* instance,
-        size_t n_items,
-        const size_t* items,
-        uint_fast32_t capacity,
-        const TBKPParams* params)
-{
-    clock_t start_time = clock();
-
+GRBmodel* tbkp_boolesol_lin_base_model(const TBKPInstance* instance) {
     GRBmodel* grb_model = NULL;
     int error = GRBnewmodel(grb_env, &grb_model, "booleip", 0, NULL, NULL, NULL, NULL, NULL);
-    int n = (int)n_items;
+    int n = (int)instance->n_items;
 
     if(error) {
         printf("Gurobi newmodel error: %d\n", error);
         exit(EXIT_FAILURE);
     }
 
-    for(size_t i = 0; i < n_items; ++i) {
+    for(size_t i = 0u; i < instance->n_items; ++i) {
         // x variables:
-        error = GRBaddvar(grb_model, 0, NULL, NULL, (double) instance->profits[items[i]], 0.0, 1.0, GRB_BINARY, NULL);
+        error = GRBaddvar(grb_model, 0, NULL, NULL, (double) instance->profits[i], 0.0, 1.0, GRB_BINARY, NULL);
 
         if (error) {
             printf("Gurobi error adding variable x[%zu]: %d\n", i, error);
@@ -39,10 +32,10 @@ TBKPBooleSol tbkp_boolesol_lin_gurobi_get(
         }
     }
 
-    for(size_t i = 0u; i < n_items; ++i) {
-        for(size_t j = 0u; j < n_items; ++j) {
-            double coeff = (double) instance->profits[items[i]];
-            coeff *= (1.0 - instance->probabilities[items[j]]);
+    for(size_t i = 0u; i < instance->n_items; ++i) {
+        for(size_t j = 0u; j < instance->n_items; ++j) {
+            double coeff = (double) instance->profits[i];
+            coeff *= (1.0 - instance->probabilities[j]);
             coeff *= -2.0;  // Double the coefficient because in the model we have the full matrix, not just the
                             // upper triangular one which gurobi requires. So effectively we have both terms
                             // - (1-\pi_{j'}) * p_j  * z_{j j'} [...]
@@ -58,20 +51,20 @@ TBKPBooleSol tbkp_boolesol_lin_gurobi_get(
     }
 
     // 1 constraint: \sum_j w_j x_j <= c
-    int* cst_ind = malloc(n_items * sizeof(*cst_ind));
-    double* cst_val = malloc(n_items * sizeof(*cst_val));
+    int* cst_ind = malloc(instance->n_items * sizeof(*cst_ind));
+    double* cst_val = malloc(instance->n_items * sizeof(*cst_val));
 
     if(!cst_ind || !cst_val) {
         printf("Cannot allocate memory for constraint coefficients\n");
         exit(EXIT_FAILURE);
     }
 
-    for(size_t i = 0u; i < n_items; ++i) {
+    for(size_t i = 0u; i < instance->n_items; ++i) {
         cst_ind[i] = (int) i;
-        cst_val[i] = (double) instance->weights[items[i]];
+        cst_val[i] = (double) instance->weights[i];
     }
 
-    error = GRBaddconstr(grb_model, n, cst_ind, cst_val, GRB_LESS_EQUAL, (double)capacity, NULL);
+    error = GRBaddconstr(grb_model, n, cst_ind, cst_val, GRB_LESS_EQUAL, (double)instance->capacity, NULL);
 
     if(error) {
         printf("Gurobi addconstr error: %d\n", error);
@@ -80,8 +73,8 @@ TBKPBooleSol tbkp_boolesol_lin_gurobi_get(
 
     // n^2 constraints: z_{ij} >= x_i + x_j - 1
     // i.e. -x_i -x_j + z_{ij} >= -1
-    for(size_t i = 0u; i < n_items; ++i) {
-        for(size_t j = 0u; j < n_items; ++j) {
+    for(size_t i = 0u; i < instance->n_items; ++i) {
+        for(size_t j = 0u; j < instance->n_items; ++j) {
             if(i == j) {
                 // When i == j, Gurobi doesn't like duplicate indices,
                 // so we rewrite the constraint as:
@@ -123,6 +116,62 @@ TBKPBooleSol tbkp_boolesol_lin_gurobi_get(
 
     if(error) {
         printf("Gurobi setintattr ModelSense error: %d\n", error);
+        exit(EXIT_FAILURE);
+    }
+
+    return grb_model;
+}
+
+TBKPBooleSol tbkp_boolesol_lin_gurobi_get(
+        const TBKPInstance* instance,
+        const TBKPParams* params,
+        GRBmodel* grb_model,
+        size_t n_items,
+        const size_t* items,
+        uint_fast32_t capacity)
+{
+    clock_t start_time = clock();
+    int error, n = (int)instance->n_items;
+
+    for(size_t i = 0u; i < instance->n_items; ++i) {
+        _Bool i_in_subproblem = false;
+        for(size_t sub_i = 0u; sub_i < n_items; ++sub_i) {
+            if(items[sub_i] == i) {
+                i_in_subproblem = true;
+                break;
+            }
+        }
+
+        // x variables:
+        error = GRBsetdblattrelement(grb_model, GRB_DBL_ATTR_UB, (int)i, i_in_subproblem ? 1.0 : 0.0);
+
+        if (error) {
+            printf("Gurobi error changing bound of variable x[%zu]: %d\n", i, error);
+            exit(EXIT_FAILURE);
+        }
+
+        for(size_t j = 0u; j < instance->n_items; ++j) {
+            _Bool j_in_subproblem = false;
+            for(size_t sub_j = 0u; sub_j < n_items; ++sub_j) {
+                if(items[sub_j] == j) {
+                    j_in_subproblem = true;
+                    break;
+                }
+
+                const double ub = (i_in_subproblem && j_in_subproblem) ? 1.0 : 0.0;
+                error = GRBsetdblattrelement(grb_model, GRB_DBL_ATTR_UB, n + ((int)i * n + (int)j), ub);
+
+                if(error) {
+                printf("Gurobi error changing bound of variable z[%zu][%zu]: %d\n", i, j, error);
+            }
+            }
+        }
+    }
+
+    error = GRBsetdblattrelement(grb_model, GRB_DBL_ATTR_RHS, 0, (double)capacity);
+
+    if(error) {
+        printf("Gurobi error changing capacity constraint RHS: %d\n", error);
         exit(EXIT_FAILURE);
     }
     
@@ -171,7 +220,7 @@ TBKPBooleSol tbkp_boolesol_lin_gurobi_get(
         exit(EXIT_FAILURE);
     }
 
-    double* solution = malloc((n_items + n_items * n_items) * sizeof(*solution));
+    double* solution = malloc((instance->n_items + instance->n_items * instance->n_items) * sizeof(*solution));
 
     if(!solution) {
         printf("Cannot allocate memory to retrieve Gurobi solution\n");
@@ -187,7 +236,7 @@ TBKPBooleSol tbkp_boolesol_lin_gurobi_get(
 
     size_t grb_n_items = 0u;
 
-    for(size_t i = 0u; i < n_items; ++i) {
+    for(size_t i = 0u; i < instance->n_items; ++i) {
         if(solution[i] > .5) {
             ++grb_n_items;
         }
@@ -201,16 +250,14 @@ TBKPBooleSol tbkp_boolesol_lin_gurobi_get(
     }
 
     size_t curr_id = 0u;
-    for(size_t i = 0u; i < n_items; ++i) {
+    for(size_t i = 0u; i < instance->n_items; ++i) {
         if(solution[i] > .5) {
-            grb_packed_items[curr_id++] = items[i];
+            grb_packed_items[curr_id++] = i;
         }
     }
 
     GRBfreemodel(grb_model);
 
-    free(cst_ind); cst_ind = NULL;
-    free(cst_val); cst_val = NULL;
     free(solution); solution = NULL;
 
     TBKPBooleSol sol = { .n_items = grb_n_items, .items = grb_packed_items };
@@ -227,26 +274,18 @@ TBKPBooleSol tbkp_boolesol_lin_gurobi_get(
     return sol;
 }
 
-TBKPBooleSol tbkp_boolesol_quad_gurobi_get(
-        const TBKPInstance* instance,
-        size_t n_items,
-        const size_t* items,
-        uint_fast32_t capacity,
-        const TBKPParams* params)
-{
-    clock_t start_time = clock();
-
+GRBmodel* tbkp_boolesol_quad_base_model(const TBKPInstance* instance) {
     GRBmodel* grb_model = NULL;
     int error = GRBnewmodel(grb_env, &grb_model, "booleqp", 0, NULL, NULL, NULL, NULL, NULL);
-    int n = (int)n_items;
+    int n = (int)instance->n_items;
 
     if(error) {
         printf("Gurobi newmodel error: %d\n", error);
         exit(EXIT_FAILURE);
     }
 
-    for(size_t i = 0u; i < n_items; ++i) {
-        error = GRBaddvar(grb_model, 0, NULL, NULL, (double) instance->profits[items[i]], 0.0, 1.0, GRB_BINARY, NULL);
+    for(size_t i = 0u; i < instance->n_items; ++i) {
+        error = GRBaddvar(grb_model, 0, NULL, NULL, (double) instance->profits[i], 0.0, 1.0, GRB_BINARY, NULL);
 
         if(error) {
             printf("Gurobi error adding variable %zu: %d\n", i, error);
@@ -276,23 +315,23 @@ TBKPBooleSol tbkp_boolesol_quad_gurobi_get(
     }
 
     size_t index = 0u;
-    for(size_t i = 0u; i < n_items; ++i) {
-        for(size_t j = i; j < n_items; ++j) {
+    for(size_t i = 0u; i < instance->n_items; ++i) {
+        for(size_t j = i; j < instance->n_items; ++j) {
             qrow[index] = (int) i;
             qcol[index] = (int) j;
 
             if(i == j) {
-                qcoeff[index] = - (double)instance->profits[items[i]] * (1 - instance->probabilities[items[i]]);
+                qcoeff[index] = - (double)instance->profits[i] * (1 - instance->probabilities[i]);
             } else {
-                qcoeff[index] = - (double)instance->profits[items[i]] * (1 - instance->probabilities[items[j]])
-                                - (double)instance->profits[items[j]] * (1 - instance->probabilities[items[i]]);
+                qcoeff[index] = - (double)instance->profits[i] * (1 - instance->probabilities[j])
+                                - (double)instance->profits[j] * (1 - instance->probabilities[i]);
             }
 
             ++index;
         }
     }
 
-    assert(index == n_items * (n_items + 1) / 2);
+    assert(index == instance->n_items * (instance->n_items + 1) / 2);
 
     // Quadratic objective coefficients:
     error = GRBaddqpterms(grb_model, quad_nz, qrow, qcol, qcoeff);
@@ -302,20 +341,20 @@ TBKPBooleSol tbkp_boolesol_quad_gurobi_get(
         exit(EXIT_FAILURE);
     }
 
-    int* cst_ind = malloc(n_items * sizeof(*cst_ind));
-    double* cst_val = malloc(n_items * sizeof(*cst_val));
+    int* cst_ind = malloc(instance->n_items * sizeof(*cst_ind));
+    double* cst_val = malloc(instance->n_items * sizeof(*cst_val));
 
     if(!cst_ind || !cst_val) {
         printf("Cannot allocate memory for constraint coefficients\n");
         exit(EXIT_FAILURE);
     }
 
-    for(size_t i = 0u; i < n_items; ++i) {
+    for(size_t i = 0u; i < instance->n_items; ++i) {
         cst_ind[i] = (int) i;
-        cst_val[i] = (double) instance->weights[items[i]];
+        cst_val[i] = (double) instance->weights[i];
     }
 
-    error = GRBaddconstr(grb_model, n, cst_ind, cst_val, GRB_LESS_EQUAL, (double)capacity, NULL);
+    error = GRBaddconstr(grb_model, n, cst_ind, cst_val, GRB_LESS_EQUAL, (double)instance->capacity, NULL);
 
     if(error) {
         printf("Gurobi addconstr error: %d\n", error);
@@ -326,6 +365,44 @@ TBKPBooleSol tbkp_boolesol_quad_gurobi_get(
 
     if(error) {
         printf("Gurobi setintattr ModelSense error: %d\n", error);
+        exit(EXIT_FAILURE);
+    }
+
+    return grb_model;
+}
+
+TBKPBooleSol tbkp_boolesol_quad_gurobi_get(
+        const TBKPInstance* instance,
+        const TBKPParams* params,
+        GRBmodel* grb_model,
+        size_t n_items,
+        const size_t* items,
+        uint_fast32_t capacity)
+{
+    clock_t start_time = clock();
+
+    int error, n = (int)instance->n_items;
+
+    for(size_t i = 0u; i < instance->n_items; ++i) {
+        _Bool i_in_subproblem = false;
+        for(size_t sub_i = 0u; sub_i < n_items; ++sub_i) {
+            if(items[sub_i] == i) {
+                i_in_subproblem = true;
+                break;
+            }
+        }
+
+        error = GRBsetdblattrelement(grb_model, GRB_DBL_ATTR_UB, (int)i, i_in_subproblem ? 1.0 : 0.0);
+
+        if(error) {
+            printf("Gurobi error changing bound of variable %zu: %d\n", i, error);
+        }
+    }
+
+    error = GRBsetdblattrelement(grb_model, GRB_DBL_ATTR_RHS, 0, (double)capacity);
+
+    if(error) {
+        printf("Gurobi error changing capacity constraint RHS: %d\n", error);
         exit(EXIT_FAILURE);
     }
 
@@ -374,7 +451,7 @@ TBKPBooleSol tbkp_boolesol_quad_gurobi_get(
         exit(EXIT_FAILURE);
     }
 
-    double* solution = malloc(n_items * sizeof(*solution));
+    double* solution = malloc(instance->n_items * sizeof(*solution));
 
     if(!solution) {
         printf("Cannot allocate memory to retrieve Gurobi solution\n");
@@ -390,7 +467,7 @@ TBKPBooleSol tbkp_boolesol_quad_gurobi_get(
 
     size_t grb_n_items = 0u;
 
-    for(size_t i = 0u; i < n_items; ++i) {
+    for(size_t i = 0u; i < instance->n_items; ++i) {
         if(solution[i] > .5) {
             ++grb_n_items;
         }
@@ -404,19 +481,14 @@ TBKPBooleSol tbkp_boolesol_quad_gurobi_get(
     }
 
     size_t curr_id = 0u;
-    for(size_t i = 0u; i < n_items; ++i) {
+    for(size_t i = 0u; i < instance->n_items; ++i) {
         if(solution[i] > .5) {
-            grb_packed_items[curr_id++] = items[i];
+            grb_packed_items[curr_id++] = i;
         }
     }
 
     GRBfreemodel(grb_model);
 
-    free(qrow); qrow = NULL;
-    free(qcol); qcol = NULL;
-    free(qcoeff); qcoeff = NULL;
-    free(cst_ind); cst_ind = NULL;
-    free(cst_val); cst_val = NULL;
     free(solution); solution = NULL;
 
     TBKPBooleSol sol = { .n_items = grb_n_items, .items = grb_packed_items };

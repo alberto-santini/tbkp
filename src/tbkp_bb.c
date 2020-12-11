@@ -431,12 +431,10 @@ double get_boole_bound(
     
     if(status->params->boole_use_quadratic_model) {
         boolesol = tbkp_boolesol_quad_gurobi_get(
-            status->instance , n_unfixed_items, items, residual->res_capacity,
-            status->params);
+            status->instance, status->params, status->boole_grb_model, n_unfixed_items, items, residual->res_capacity);
     } else {
         boolesol = tbkp_boolesol_lin_gurobi_get(
-            status->instance , n_unfixed_items, items, residual->res_capacity,
-            status->params);
+            status->instance, status->params, status->boole_grb_model, n_unfixed_items, items, residual->res_capacity);
     }
     
     ++(status->stats->n_boole_called);
@@ -845,13 +843,22 @@ TBKPBBSolution* tbkp_branch_and_bound(const TBKPInstance *const instance, TBKPBB
 
     size_t n_nodes = 0u;
 
+    GRBmodel* boole_grb_model = NULL;
+
+    if(params->boole_use_quadratic_model) {
+        boole_grb_model = tbkp_boolesol_quad_base_model(instance);
+    } else {
+        boole_grb_model = tbkp_boolesol_lin_base_model(instance);
+    }
+
     TBKPBBAlgStatus status = {
         .instance = instance,
         .params = params,
         .solution = solution,
         .x = x,
         .stats = stats,
-        .n_nodes = &n_nodes
+        .n_nodes = &n_nodes,
+        .boole_grb_model = boole_grb_model
     };
 
     TBKPBBResidualInstance residual = {

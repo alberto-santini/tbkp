@@ -44,10 +44,18 @@ typedef struct {
     float time_to_compute;
 } TBKPBooleSol;
 
+/** Generate a base model for solving the Boole BQ problem as a quadratic problem.
+ * @param instance Const pointer to a Time-bomb Knapsack problem.
+ * @return         A Gurobi model to be reused for the solution of Boole BQ problems.
+ */
+GRBmodel* tbkp_boolesol_quad_base_model(const TBKPInstance* instance);
+
 /** Gets the lower bound from solving the Boole BQ problem as-is, i.e., as
  *  a quadratic problem using the Gurobi optimiser.
  *
  * @param instance  Const pointer to a Time-bomb Knapsack problem.
+ * @param params    Solver parameters.
+ * @param grb_model Base Gurobi model.
  * @param n_items   Number of items to consider when solving the Boole BQ
  *                  problem. This can be smaller than the number of items in
  *                  the TBKP instance, if some items are excluded or fixed,
@@ -56,21 +64,29 @@ typedef struct {
  *                  considering when solving the Boole BQ problem.
  * @param capacity  Capacity of the Boole BQ knapsack (which can be smaller
  *                  than the original TBKP instance's capacity).
- * @param params    Problem parameters.
  * @return          The value of the LB and the objects selected by the Boole
  *                  QB problem.
  */
 TBKPBooleSol tbkp_boolesol_quad_gurobi_get(
         const TBKPInstance* instance,
+        const TBKPParams* params,
+        GRBmodel* grb_model,
         size_t n_items,
         const size_t* items,
-        uint_fast32_t capacity,
-        const TBKPParams* params);
+        uint_fast32_t capacity);
 
-/** Gets the lower bound from solving the Bool BQ problem using a linearisation
+/** Generate a base model for solving the Boole BQ problem using a linearisation.
+ * @param instance Const pointer to a Time-bomb Knapsack problem.
+ * @return         A Gurobi model to be reused for the solution of Boole BQ problems.
+ */
+GRBmodel* tbkp_boolesol_lin_base_model(const TBKPInstance* instance);
+
+/** Gets the lower bound from solving the Boole BQ problem using a linearisation
  *  and getting its solution via the Gurobi solver.
  *
  * @param instance  Const pointer to a Time-bomb Knapsack problem.
+ * @param params    Solver parameters.
+ * @param grb_model Base Gurobi model.
  * @param n_items   Number of items to consider when solving the Boole BQ
  *                  problem. This can be smaller than the number of items in
  *                  the TBKP instance, if some items are excluded or fixed,
@@ -79,16 +95,16 @@ TBKPBooleSol tbkp_boolesol_quad_gurobi_get(
  *                  considering when solving the Boole BQ problem.
  * @param capacity  Capacity of the Boole BQ knapsack (which can be smaller
  *                  than the original TBKP instance's capacity).
- * @param params    Problem parameters.
  * @return          The value of the LB and the objects selected by the Boole
  *                  QB problem.
  */
 TBKPBooleSol tbkp_boolesol_lin_gurobi_get(
         const TBKPInstance* instance,
+        const TBKPParams* params,
+        GRBmodel* grb_model,
         size_t n_items,
         const size_t* items,
-        uint_fast32_t capacity,
-        const TBKPParams* params);
+        uint_fast32_t capacity);
 
 /** Computes the original TBKP objective value of a solution obtained
  *  using the Boole BQ problem.
