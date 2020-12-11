@@ -17,7 +17,7 @@ TBKPParams parse_arguments(int argc, const char** argv) {
         .instance_file = NULL,
         .output_file = NULL,
         .timeout = 3600.0f,
-        .boole_lin_solver_timeout_s = 3600.0f,
+        .boole_solver_timeout_s = 3600.0f,
         .boole_bound_frequency = 1u,
         .use_cr_bound = false,
         .use_de_bounds = false,
@@ -25,11 +25,14 @@ TBKPParams parse_arguments(int argc, const char** argv) {
         .use_early_combo = false,
         .use_early_pruning = false,
         .use_all_bounds_at_root = false,
+        .gurobi_disable_presolve = false,
         .max_nodes = 0
     };
 
     // I think we need this because argparse's OPT_BOOLEAN has a bug.
-    int early_combo = 0, early_pruning = 0, cont_relax = 0, de_bounds = 0, boole_bound = 0, all_bounds = 0;
+    int early_combo = 0, early_pruning = 0, cont_relax = 0,
+        de_bounds = 0, boole_bound = 0, all_bounds = 0,
+        gurobi_disable_presolve = 0, boole_use_quadratic_model = 0;
 
     static const char *const usage[] = {
         "tbkp [options]",
@@ -42,7 +45,7 @@ TBKPParams parse_arguments(int argc, const char** argv) {
         OPT_STRING( 'o', "output", &p.output_file, "path to the csv output file"),
         OPT_STRING( 's', "solver", &p.solver, "solver: bb = branch and bound, dp = dynamic programming"),
         OPT_FLOAT(  't', "timeout", &p.timeout, "timeout in seconds"),
-        OPT_FLOAT(  'T', "booletimeout", &p.boole_lin_solver_timeout_s, "timeout in seconds for the solver of the linear Boole bound model"),
+        OPT_FLOAT(  'T', "booletimeout", &p.boole_solver_timeout_s, "timeout in seconds for the solver of the linear Boole bound model"),
         OPT_INTEGER('c', "earlycombo", &early_combo, "1 if we call COMBO before reaching leaf nodes"),
         OPT_INTEGER('p', "earlypruning", &early_pruning, "1 if we skip branching items which cannot improve the obj value"),
         OPT_INTEGER('r', "contrelax", &cont_relax, "1 if we use bounds from the continuous relaxation"),
@@ -51,6 +54,8 @@ TBKPParams parse_arguments(int argc, const char** argv) {
         OPT_INTEGER('f', "boolefreq", &p.boole_bound_frequency, "frequency at which to use the Boole bound"),
         OPT_INTEGER('a', "allbounds", &all_bounds, "1 if using all bounds at the root node, no matter what the other options are"),
         OPT_INTEGER('n', "maxnodes", &p.max_nodes, "Number of branch-and-bound nodes to be explored (1 for root node only, 0 for no limit)"),
+        OPT_INTEGER('g', "nopresolve", &gurobi_disable_presolve, "1 if disabling Gurobi's presolve steps"),
+        OPT_INTEGER('q', "boolequad", &boole_use_quadratic_model, "1 if we should solve the Boole quadratic model directly (0 to linearise first)"),
         OPT_END()
     };
 
@@ -64,6 +69,8 @@ TBKPParams parse_arguments(int argc, const char** argv) {
     p.use_de_bounds = (de_bounds == 1);
     p.use_boole_bound = (boole_bound == 1);
     p.use_all_bounds_at_root = (all_bounds == 1);
+    p.gurobi_disable_presolve = (gurobi_disable_presolve == 1);
+    p.boole_use_quadratic_model = (boole_use_quadratic_model == 1);
 
     if(!p.instance_file) {
         printf("You have to specify an instance file!\n");

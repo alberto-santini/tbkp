@@ -427,9 +427,17 @@ double get_boole_bound(
         size_t* items,
         size_t n_unfixed_items
 ) {
-    TBKPBooleSol boolesol = tbkp_boolesol_lin_gurobi_get(
+    TBKPBooleSol boolesol;
+    
+    if(status->params->boole_use_quadratic_model) {
+        boolesol = tbkp_boolesol_quad_gurobi_get(
             status->instance , n_unfixed_items, items, residual->res_capacity,
-            status->params->boole_lin_solver_timeout_s);
+            status->params);
+    } else {
+        boolesol = tbkp_boolesol_lin_gurobi_get(
+            status->instance , n_unfixed_items, items, residual->res_capacity,
+            status->params);
+    }
     
     ++(status->stats->n_boole_called);
     status->stats->tot_time_boole += boolesol.time_to_compute;
