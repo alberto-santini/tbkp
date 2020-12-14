@@ -12,7 +12,7 @@
 
 #define EPS 0.01
 
-GRBmodel* tbkp_boolesol_lin_base_model(const TBKPInstance* instance) {
+GRBmodel* tbkp_boolesol_lin_base_model(const TBKPInstance* instance, const TBKPParams* params) {
     GRBmodel* grb_model = NULL;
     int error = GRBnewmodel(grb_env, &grb_model, "booleip", 0, NULL, NULL, NULL, NULL, NULL);
     int n = (int)instance->n_items;
@@ -119,62 +119,6 @@ GRBmodel* tbkp_boolesol_lin_base_model(const TBKPInstance* instance) {
         exit(EXIT_FAILURE);
     }
 
-    return grb_model;
-}
-
-TBKPBooleSol tbkp_boolesol_lin_gurobi_get(
-        const TBKPInstance* instance,
-        const TBKPParams* params,
-        GRBmodel* grb_model,
-        size_t n_items,
-        const size_t* items,
-        uint_fast32_t capacity)
-{
-    clock_t start_time = clock();
-    int error, n = (int)instance->n_items;
-
-    for(size_t i = 0u; i < instance->n_items; ++i) {
-        _Bool i_in_subproblem = false;
-        for(size_t sub_i = 0u; sub_i < n_items; ++sub_i) {
-            if(items[sub_i] == i) {
-                i_in_subproblem = true;
-                break;
-            }
-        }
-
-        // x variables:
-        error = GRBsetdblattrelement(grb_model, GRB_DBL_ATTR_UB, (int)i, i_in_subproblem ? 1.0 : 0.0);
-
-        if (error) {
-            printf("Gurobi error changing bound of variable x[%zu]: %d\n", i, error);
-            exit(EXIT_FAILURE);
-        }
-
-        for(size_t j = 0u; j < instance->n_items; ++j) {
-            _Bool j_in_subproblem = false;
-            for(size_t sub_j = 0u; sub_j < n_items; ++sub_j) {
-                if(items[sub_j] == j) {
-                    j_in_subproblem = true;
-                    break;
-                }
-
-                const double ub = (i_in_subproblem && j_in_subproblem) ? 1.0 : 0.0;
-                error = GRBsetdblattrelement(grb_model, GRB_DBL_ATTR_UB, n + ((int)i * n + (int)j), ub);
-
-                if(error) {
-                printf("Gurobi error changing bound of variable z[%zu][%zu]: %d\n", i, j, error);
-            }
-            }
-        }
-    }
-
-    error = GRBsetdblattrelement(grb_model, GRB_DBL_ATTR_RHS, 0, (double)capacity);
-
-    if(error) {
-        printf("Gurobi error changing capacity constraint RHS: %d\n", error);
-        exit(EXIT_FAILURE);
-    }
-    
     error = GRBsetdblparam(grb_env, "TimeLimit", params->boole_solver_timeout_s);
 
     if(error) {
@@ -189,6 +133,73 @@ TBKPBooleSol tbkp_boolesol_lin_gurobi_get(
             printf("Gurobi failed to turn off presolve; error: \%d", error);
             exit(EXIT_FAILURE);
         }
+    }
+
+    error = GRBupdatemodel(grb_model);
+
+    if(error) {
+        printf("Error updating model: %d\n", error);
+        exit(EXIT_FAILURE);
+    }
+
+    return grb_model;
+}
+
+TBKPBooleSol tbkp_boolesol_lin_gurobi_get(
+        const TBKPInstance* instance,
+        const TBKPBBFixedStatus* x,
+        GRBmodel* grb_model)
+{
+    clock_t start_time = clock();
+    int error, n = (int)instance->n_items;
+
+    for(size_t i = 0u; i < instance->n_items; ++i) {
+        if(x[i] == FIXED_PACK) {
+            error = GRBsetdblattrelement(grb_model, GRB_DBL_ATTR_LB, (int)i, 1.0);
+            if(error) {
+                printf("Error setting LB=1 for fixed item %zu: %d\n", i, error);
+                exit(EXIT_FAILURE);
+            }
+
+            error = GRBsetdblattrelement(grb_model, GRB_DBL_ATTR_UB, (int)i, 1.0);
+            if(error) {
+                printf("Error setting UB=1 for fixed item %zu: %d\n", i, error);
+                exit(EXIT_FAILURE);
+            }
+        } else if(x[i] == FIXED_DONT_PACK) {
+            error = GRBsetdblattrelement(grb_model, GRB_DBL_ATTR_LB, (int)i, 0.0);
+            if(error) {
+                printf("Error setting LB=0 for unfixed item %zu: %d\n", i, error);
+                exit(EXIT_FAILURE);
+            }
+
+            error = GRBsetdblattrelement(grb_model, GRB_DBL_ATTR_UB, (int)i, 0.0);
+            if(error) {
+                printf("Error setting UB=0 for fixed item %zu: %d\n", i, error);
+                exit(EXIT_FAILURE);
+            }
+        } else {
+            assert(x[i] == UNFIXED);
+
+            error = GRBsetdblattrelement(grb_model, GRB_DBL_ATTR_LB, (int)i, 0.0);
+            if(error) {
+                printf("Error setting LB=0 for free item %zu: %d\n", i, error);
+                exit(EXIT_FAILURE);
+            }
+
+            error = GRBsetdblattrelement(grb_model, GRB_DBL_ATTR_UB, (int)i, 1.0);
+            if(error) {
+                printf("Error setting UB=1 for free item %zu: %d\n", i, error);
+                exit(EXIT_FAILURE);
+            }
+        }
+    }
+
+    error = GRBupdatemodel(grb_model);
+
+    if(error) {
+        printf("Error updating the model after modifying it: %d\n", error);
+        exit(EXIT_FAILURE);
     }
 
     error = GRBoptimize(grb_model);
@@ -256,8 +267,6 @@ TBKPBooleSol tbkp_boolesol_lin_gurobi_get(
         }
     }
 
-    GRBfreemodel(grb_model);
-
     free(solution); solution = NULL;
 
     TBKPBooleSol sol = { .n_items = grb_n_items, .items = grb_packed_items };
@@ -274,7 +283,7 @@ TBKPBooleSol tbkp_boolesol_lin_gurobi_get(
     return sol;
 }
 
-GRBmodel* tbkp_boolesol_quad_base_model(const TBKPInstance* instance) {
+GRBmodel* tbkp_boolesol_quad_base_model(const TBKPInstance* instance, const TBKPParams* params) {
     GRBmodel* grb_model = NULL;
     int error = GRBnewmodel(grb_env, &grb_model, "booleqp", 0, NULL, NULL, NULL, NULL, NULL);
     int n = (int)instance->n_items;
@@ -368,44 +377,6 @@ GRBmodel* tbkp_boolesol_quad_base_model(const TBKPInstance* instance) {
         exit(EXIT_FAILURE);
     }
 
-    return grb_model;
-}
-
-TBKPBooleSol tbkp_boolesol_quad_gurobi_get(
-        const TBKPInstance* instance,
-        const TBKPParams* params,
-        GRBmodel* grb_model,
-        size_t n_items,
-        const size_t* items,
-        uint_fast32_t capacity)
-{
-    clock_t start_time = clock();
-
-    int error, n = (int)instance->n_items;
-
-    for(size_t i = 0u; i < instance->n_items; ++i) {
-        _Bool i_in_subproblem = false;
-        for(size_t sub_i = 0u; sub_i < n_items; ++sub_i) {
-            if(items[sub_i] == i) {
-                i_in_subproblem = true;
-                break;
-            }
-        }
-
-        error = GRBsetdblattrelement(grb_model, GRB_DBL_ATTR_UB, (int)i, i_in_subproblem ? 1.0 : 0.0);
-
-        if(error) {
-            printf("Gurobi error changing bound of variable %zu: %d\n", i, error);
-        }
-    }
-
-    error = GRBsetdblattrelement(grb_model, GRB_DBL_ATTR_RHS, 0, (double)capacity);
-
-    if(error) {
-        printf("Gurobi error changing capacity constraint RHS: %d\n", error);
-        exit(EXIT_FAILURE);
-    }
-
     error = GRBsetdblparam(grb_env, "TimeLimit", params->boole_solver_timeout_s);
 
     if(error) {
@@ -420,6 +391,74 @@ TBKPBooleSol tbkp_boolesol_quad_gurobi_get(
             printf("Gurobi failed to turn off presolve; error: \%d", error);
             exit(EXIT_FAILURE);
         }
+    }
+
+    error = GRBupdatemodel(grb_model);
+
+    if(error) {
+        printf("Error updating model: %d\n", error);
+        exit(EXIT_FAILURE);
+    }
+
+    return grb_model;
+}
+
+TBKPBooleSol tbkp_boolesol_quad_gurobi_get(
+        const TBKPInstance* instance,
+        const TBKPBBFixedStatus* x,
+        GRBmodel* grb_model)
+{
+    clock_t start_time = clock();
+
+    int error, n = (int)instance->n_items;
+
+    for(size_t i = 0u; i < instance->n_items; ++i) {
+        if(x[i] == FIXED_PACK) {
+            error = GRBsetdblattrelement(grb_model, GRB_DBL_ATTR_LB, (int)i, 1.0);
+            if(error) {
+                printf("Error setting LB=1 for fixed item %zu: %d\n", i, error);              
+                exit(EXIT_FAILURE);
+            }
+
+            error = GRBsetdblattrelement(grb_model, GRB_DBL_ATTR_UB, (int)i, 1.0);
+            if(error) {
+                printf("Error setting UB=1 for fixed item %zu: %d\n", i, error);
+                exit(EXIT_FAILURE);
+            }
+        } else if(x[i] == FIXED_DONT_PACK) {
+            error = GRBsetdblattrelement(grb_model, GRB_DBL_ATTR_LB, (int)i, 0.0);
+            if(error) {
+                printf("Error setting LB=0 for unfixed item %zu: %d\n", i, error);
+                exit(EXIT_FAILURE);
+            }
+
+            error = GRBsetdblattrelement(grb_model, GRB_DBL_ATTR_UB, (int)i, 0.0);
+            if(error) {
+                printf("Error setting UB=0 for fixed item %zu: %d\n", i, error);
+                exit(EXIT_FAILURE);
+            }
+        } else {
+            assert(x[i] == UNFIXED);
+
+            error = GRBsetdblattrelement(grb_model, GRB_DBL_ATTR_LB, (int)i, 0.0);
+            if(error) {
+                printf("Error setting LB=0 for free item %zu: %d\n", i, error);
+                exit(EXIT_FAILURE);
+            }
+
+            error = GRBsetdblattrelement(grb_model, GRB_DBL_ATTR_UB, (int)i, 1.0);
+            if(error) {
+                printf("Error setting UB=1 for free item %zu: %d\n", i, error);
+                exit(EXIT_FAILURE);
+            }
+        }
+    }
+
+    error = GRBupdatemodel(grb_model);
+
+    if(error) {
+        printf("Error updating the model after modifying it: %d\n", error);
+        exit(EXIT_FAILURE);
     }
 
     error = GRBoptimize(grb_model);
@@ -486,8 +525,6 @@ TBKPBooleSol tbkp_boolesol_quad_gurobi_get(
             grb_packed_items[curr_id++] = i;
         }
     }
-
-    GRBfreemodel(grb_model);
 
     free(solution); solution = NULL;
 

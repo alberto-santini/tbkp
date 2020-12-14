@@ -423,18 +423,14 @@ static DEBounds get_de_bounds(
 double get_boole_bound(
         TBKPBBAlgStatus *const status,
         const TBKPBBResidualInstance *const residual,
-        size_t current_node,
-        size_t* items,
-        size_t n_unfixed_items
+        size_t current_node
 ) {
     TBKPBooleSol boolesol;
     
     if(status->params->boole_use_quadratic_model) {
-        boolesol = tbkp_boolesol_quad_gurobi_get(
-            status->instance, status->params, status->boole_grb_model, n_unfixed_items, items, residual->res_capacity);
+        boolesol = tbkp_boolesol_quad_gurobi_get(status->instance, status->x, status->boole_grb_model);
     } else {
-        boolesol = tbkp_boolesol_lin_gurobi_get(
-            status->instance, status->params, status->boole_grb_model, n_unfixed_items, items, residual->res_capacity);
+        boolesol = tbkp_boolesol_lin_gurobi_get(status->instance, status->x, status->boole_grb_model);
     }
     
     ++(status->stats->n_boole_called);
@@ -749,7 +745,7 @@ static void tbkp_bb_solve_node(
 
     assert(current_node >= 1u);
     if((status->params->use_boole_bound && (current_node - 1u) % status->params->boole_bound_frequency == 0u) || use_all_bounds) {
-        double boole_lb = get_boole_bound(status, &residual, current_node, items, n_unfixed_items);
+        double boole_lb = get_boole_bound(status, &residual, current_node);
 
         if(boole_lb > new_lb) {
             // Local LB improved.
@@ -846,9 +842,9 @@ TBKPBBSolution* tbkp_branch_and_bound(const TBKPInstance *const instance, TBKPBB
     GRBmodel* boole_grb_model = NULL;
 
     if(params->boole_use_quadratic_model) {
-        boole_grb_model = tbkp_boolesol_quad_base_model(instance);
+        boole_grb_model = tbkp_boolesol_quad_base_model(instance, params);
     } else {
-        boole_grb_model = tbkp_boolesol_lin_base_model(instance);
+        boole_grb_model = tbkp_boolesol_lin_base_model(instance, params);
     }
 
     TBKPBBAlgStatus status = {
@@ -896,6 +892,8 @@ TBKPBBSolution* tbkp_branch_and_bound(const TBKPInstance *const instance, TBKPBB
     }
 
     stats->gap = (stats->ub - stats->lb) / stats->ub;
+
+    GRBfreemodel(boole_grb_model);
 
     return solution;
 }
