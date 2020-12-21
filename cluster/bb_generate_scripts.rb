@@ -86,13 +86,13 @@ def create_bb_eval_scripts(configuration)
             # Third configuration: all bounds, i.e., DEbounds (z1lower + z1upper), BOOLEbound (z2lower), CRbound (z2upper)
             create_script instance, early_combo: true, early_pruning: true, use_de: true, use_boole: true, boole_freq: 1000, boole_tl: 1, quad_boole: true, use_cr: true
         when 4
-            # Fourth configuration: DEbounds (z1lower + d1upper) + BOOLEbound (z2lower)
+            # Fourth configuration: DEbounds (z1lower + z1upper) + BOOLEbound (z2lower)
             create_script instance, early_combo: true, early_pruning: true, use_de: true, use_boole: true, boole_freq: 1000, boole_tl: 1, quad_boole: true, use_cr: false
         when 5
-            # Fifth configuration: DEbounds (z1lower + d1upper) + CRbound (z2upper)
+            # Fifth configuration: DEbounds (z1lower + z1upper) + CRbound (z2upper)
             create_script instance, early_combo: true, early_pruning: true, use_de: true, use_boole: false, boole_freq: 0, boole_tl: 3600, quad_boole: true, use_cr: true
         when 6
-            # Sixth configuration: DEbounds (z1lower + d1upper) + BOOLEbound (z2lower) + CRbound (z2upper) but *without* early combo
+            # Sixth configuration: DEbounds (z1lower + z1upper) + BOOLEbound (z2lower) + CRbound (z2upper) but *without* early combo
             create_script instance, early_combo: false, early_runing: true, use_de: true, use_boole: true, boole_freq: 1000, boole_tl: 1, quad_boole: true, use_cr: true
         end
     end
