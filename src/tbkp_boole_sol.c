@@ -119,7 +119,7 @@ GRBmodel* tbkp_boolesol_lin_base_model(const TBKPInstance* instance, const TBKPP
         exit(EXIT_FAILURE);
     }
 
-    error = GRBsetdblparam(grb_env, "TimeLimit", params->boole_solver_timeout_s);
+    error = GRBsetdblparam(GRBgetenv(grb_model), "TimeLimit", params->boole_solver_timeout_s);
 
     if(error) {
         printf("Gurobi setdblparam error while setting timeout: %d\n", error);
@@ -127,7 +127,7 @@ GRBmodel* tbkp_boolesol_lin_base_model(const TBKPInstance* instance, const TBKPP
     }
 
     if(params->gurobi_disable_presolve) {
-        error = GRBsetintparam(grb_env, "Presolve", 0);
+        error = GRBsetintparam(GRBgetenv(grb_model), "Presolve", 0);
 
         if(error) {
             printf("Gurobi failed to turn off presolve; error: \%d", error);
@@ -377,7 +377,7 @@ GRBmodel* tbkp_boolesol_quad_base_model(const TBKPInstance* instance, const TBKP
         exit(EXIT_FAILURE);
     }
 
-    error = GRBsetdblparam(grb_env, "TimeLimit", params->boole_solver_timeout_s);
+    error = GRBsetdblparam(GRBgetenv(grb_model), "TimeLimit", params->boole_solver_timeout_s);
 
     if(error) {
         printf("Gurobi setdblparam error while setting timeout: %d\n", error);
@@ -385,7 +385,7 @@ GRBmodel* tbkp_boolesol_quad_base_model(const TBKPInstance* instance, const TBKP
     }
 
     if(params->gurobi_disable_presolve) {
-        error = GRBsetintparam(grb_env, "Presolve", 0);
+        error = GRBsetintparam(GRBgetenv(grb_model), "Presolve", 0);
 
         if(error) {
             printf("Gurobi failed to turn off presolve; error: \%d", error);
