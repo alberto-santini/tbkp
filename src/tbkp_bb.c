@@ -286,7 +286,7 @@ static void update_best_solution_from_boole(
  *  In this case, if the LB is better than the current best LB, it updates it.
  *
  *  @param status               Current state of the algorithm.
- *  @return                     The CRBounds object containind the CR bounds and the pruning flag.
+ *  @return                     The CRBounds object containing the CR bounds and the pruning flag.
  */
 static CRBound get_cr_bound(
     TBKPBBAlgStatus *const status,
@@ -436,8 +436,7 @@ double get_boole_bound(
     ++(status->stats->n_boole_called);
     status->stats->tot_time_boole += boolesol.time_to_compute;
 
-    double local_lb = (double) (boolesol.lb_sum_profits + residual->sum_profits) *
-                     (boolesol.lb_product_probabilities * residual->prod_probabilities);
+    const double local_lb = boolesol.lb;
 
     if(BB_VERBOSITY_CURRENT > BB_VERBOSITY_INFO) {
         printf("\t\tLB (Boole relaxation): %f (vs %f)\n", local_lb, status->solution->value);
@@ -789,6 +788,11 @@ static void tbkp_bb_solve_node(
     // Check if LB == UB; in this case, prune.
     if(local_lb >= local_ub - EPS && local_lb != INITIAL_LB_PLACEHOLDER && local_ub != INITIAL_UB_PLACEHOLDER) {
         if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
+            if(local_lb > local_lb + EPS) {
+                printf("[NODE %zu] Potential bug: LB > UB (%.4f > %.4f)\n", current_node, local_lb, local_ub);
+                exit(EXIT_FAILURE);
+            }
+
             printf("[NODE %zu] LB and UB coincide (%.6f): closing node\n", current_node, local_lb);
         }
 
