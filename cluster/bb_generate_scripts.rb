@@ -93,7 +93,7 @@ def create_bb_eval_scripts(configuration)
             create_script instance, early_combo: true, early_pruning: true, use_de: true, use_boole: false, boole_freq: 0, boole_tl: 3600, quad_boole: true, use_cr: true
         when 6
             # Sixth configuration: DEbounds (z1lower + z1upper) + BOOLEbound (z2lower) + CRbound (z2upper) but *without* early combo
-            create_script instance, early_combo: false, early_runing: true, use_de: true, use_boole: true, boole_freq: 1000, boole_tl: 1, quad_boole: true, use_cr: true
+            create_script instance, early_combo: false, early_pruning: true, use_de: true, use_boole: true, boole_freq: 1000, boole_tl: 1, quad_boole: true, use_cr: true
         end
     end
 end
@@ -119,6 +119,12 @@ def create_bb_root_node_scripts(configuration)
         when 6
             # CRbound (z2upper)
             create_script instance, early_combo: false, early_pruning: false, use_de: false, use_boole: false, boole_freq: 0, boole_tl: 3600, quad_boole: true, use_cr: true, max_nodes: 1
+        when 7
+            # BOOLEbound 10 seconds (z2lower)
+            create_script instance, early_combo: false, early_pruning: false, use_de: false, use_boole: true, boole_freq: 1, boole_tl: 10, quad_boole: true, use_cr: false, max_nodes: 1
+        when 8
+            # BOOLEbound 1 minute (z2lower)
+            create_script instance, early_combo: false, early_pruning: false, use_de: false, use_boole: true, boole_freq: 1, boole_tl: 60, quad_boole: true, use_cr: false, max_nodes: 1
         end
     end
 end
