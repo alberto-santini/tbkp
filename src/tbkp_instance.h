@@ -13,6 +13,7 @@ typedef struct {
     uint_fast32_t* weights;
     uint_fast32_t* profits;
     double* probabilities;
+    double sum_profit_times_probability; // Used to decide the combo multiplier.
 
     uint_fast32_t n_tb_items;
     uint_fast32_t n_det_items;

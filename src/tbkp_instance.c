@@ -112,6 +112,7 @@ TBKPInstance* tbkp_instance_read(const char *const filename) {
     instance->n_det_items = 0u;
     instance->tb_tot_weight = 0u;
     instance->tb_ub_packed_profit = 0u;
+    instance->sum_profit_times_probability = 0.0;
 
     if((instance->weights == NULL) || (instance->profits == NULL) || (instance->probabilities == NULL)) {
         printf("Cannot allocate memory for data\n");
@@ -145,6 +146,8 @@ TBKPInstance* tbkp_instance_read(const char *const filename) {
             ++(instance->n_det_items);
             instance->det_tot_weight += items[i].w;
         }
+
+        instance->sum_profit_times_probability += (double) items[i].p * items[i].pi;
     }
 
     if(fclose(fd) != 0) {

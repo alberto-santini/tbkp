@@ -20,7 +20,12 @@ TBKPDeterministicEqSol tbkp_desol_get(
     clock_t start_time = clock();
 
     // Multiplier we need because COMBO only takes integer profits!
-    const double cmb_multiplier = 1000.0;
+    double cmb_multiplier = 1000.0;
+
+    // COMBO uses 32-bit integers internally, so we have to be careful of overflows.
+    while(cmb_multiplier * instance->sum_profit_times_probability > INT32_MAX) {
+        cmb_multiplier /= 10;
+    }
 
     cmb_item* cmb_items = malloc(n_items * sizeof(*cmb_items));
 
