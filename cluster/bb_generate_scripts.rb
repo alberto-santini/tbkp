@@ -19,6 +19,7 @@ def create_script(
     use_boole:,
     boole_freq:,
     boole_tl:,
+    boole_root_tl:,
     use_cr:,
     all_bounds: false,
     disable_presolve: false,
@@ -33,7 +34,7 @@ def create_script(
     b = File.basename(instance, '.txt')
     sz = b.split('-')[1].to_i
     b += "-d" if use_de
-    b += "-b#{boole_freq},#{boole_tl}" if use_boole
+    b += "-b#{boole_freq},#{boole_tl},#{boole_root_tl}" if use_boole
     b += "-r" if use_cr
     b += "-c" if early_combo
     b += "-p" if early_pruning
@@ -45,7 +46,7 @@ def create_script(
     
     params = ""
     params += " -d 1" if use_de
-    params += " -b 1 -f #{boole_freq} -T #{boole_tl}" if use_boole
+    params += " -b 1 -f #{boole_freq} -T #{boole_tl} -R #{boole_root_tl}" if use_boole
     params += " -c 1" if early_combo
     params += " -p 1" if early_pruning
     params += " -r 1" if use_cr
@@ -78,22 +79,25 @@ def create_bb_eval_scripts(configuration)
         case configuration
         when 1
             # First configuration: enumeration
-            create_script instance, early_combo: true, early_pruning: false, use_de: false, use_boole: false, boole_freq: 0, boole_tl: 3600, quad_boole: true, use_cr: false
+            create_script instance, early_combo: true, early_pruning: false, use_de: false, use_boole: false, boole_freq: 0, boole_tl: 3600, boole_root_tl: 3600, quad_boole: true, use_cr: false
         when 2
             # Second configuration: DEbounds (z1lower + z1upper)
-            create_script instance, early_combo: true, early_pruning: true, use_de: true, use_boole: false, boole_freq: 0, boole_tl: 3600, quad_boole: true, use_cr: false
+            create_script instance, early_combo: true, early_pruning: true, use_de: true, use_boole: false, boole_freq: 0, boole_tl: 3600, boole_root_tl: 3600, quad_boole: true, use_cr: false
         when 3
             # Third configuration: all bounds, i.e., DEbounds (z1lower + z1upper), BOOLEbound (z2lower), CRbound (z2upper)
-            create_script instance, early_combo: true, early_pruning: true, use_de: true, use_boole: true, boole_freq: 1000, boole_tl: 1, quad_boole: true, use_cr: true
+            create_script instance, early_combo: true, early_pruning: true, use_de: true, use_boole: true, boole_freq: 1000, boole_tl: 1, boole_root_tl: 1, quad_boole: true, use_cr: true
         when 4
             # Fourth configuration: DEbounds (z1lower + z1upper) + BOOLEbound (z2lower)
-            create_script instance, early_combo: true, early_pruning: true, use_de: true, use_boole: true, boole_freq: 1000, boole_tl: 1, quad_boole: true, use_cr: false
+            create_script instance, early_combo: true, early_pruning: true, use_de: true, use_boole: true, boole_freq: 1000, boole_tl: 1, boole_root_tl: 1, quad_boole: true, use_cr: false
         when 5
             # Fifth configuration: DEbounds (z1lower + z1upper) + CRbound (z2upper)
-            create_script instance, early_combo: true, early_pruning: true, use_de: true, use_boole: false, boole_freq: 0, boole_tl: 3600, quad_boole: true, use_cr: true
+            create_script instance, early_combo: true, early_pruning: true, use_de: true, use_boole: false, boole_freq: 0, boole_tl: 3600, boole_root_tl: 3600, quad_boole: true, use_cr: true
         when 6
             # Sixth configuration: DEbounds (z1lower + z1upper) + BOOLEbound (z2lower) + CRbound (z2upper) but *without* early combo
-            create_script instance, early_combo: false, early_pruning: true, use_de: true, use_boole: true, boole_freq: 1000, boole_tl: 1, quad_boole: true, use_cr: true
+            create_script instance, early_combo: false, early_pruning: true, use_de: true, use_boole: true, boole_freq: 1000, boole_tl: 1, boole_root_tl: 1, quad_boole: true, use_cr: true
+        when 7
+            # Seventh configuration: DEbounds(z1lower + z1upper) + Boolebound (z2lower, 10s root, 1s elsewhere), CRbound (z2upper)
+            create_script instance, early_combo: true, early_pruning: true, use_de: true, use_boole: true, boole_freq: 1, boole_tl: 1, boole_root_tl: 10, quad_boole: true, use_cr: true
         end
     end
 end
