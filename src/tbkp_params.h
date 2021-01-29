@@ -25,6 +25,7 @@ typedef struct {
     size_t boole_bound_frequency;
     size_t max_nodes;
     float boole_solver_timeout_s;
+    float boole_solver_root_timeout_s;
 } TBKPParams;
 
 #endif //TBKP_TBKP_PARAMS_H

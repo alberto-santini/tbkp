@@ -425,12 +425,13 @@ double get_boole_bound(
         const TBKPBBResidualInstance *const residual,
         size_t current_node
 ) {
+    const _Bool root_node = (current_node == 1u);
     TBKPBooleSol boolesol;
     
     if(status->params->boole_use_quadratic_model) {
-        boolesol = tbkp_boolesol_quad_gurobi_get(status->instance, status->x, status->boole_grb_model);
+        boolesol = tbkp_boolesol_quad_gurobi_get(status->instance, status->params, status->x, status->boole_grb_model, root_node);
     } else {
-        boolesol = tbkp_boolesol_lin_gurobi_get(status->instance, status->x, status->boole_grb_model);
+        boolesol = tbkp_boolesol_lin_gurobi_get(status->instance, status->params, status->x, status->boole_grb_model, root_node);
     }
     
     ++(status->stats->n_boole_called);
@@ -442,7 +443,7 @@ double get_boole_bound(
         printf("\t\tLB (Boole relaxation): %f (vs %f)\n", local_lb, status->solution->value);
     }
 
-    if(current_node == 1u) {
+    if(root_node) {
         status->stats->boole_lb_at_root = local_lb;
         status->stats->time_to_compute_boole_at_root = boolesol.time_to_compute;
     }

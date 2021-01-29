@@ -56,15 +56,20 @@ GRBmodel* tbkp_boolesol_quad_base_model(const TBKPInstance* instance, const TBKP
  *  a quadratic problem using the Gurobi optimiser.
  *
  * @param instance  Const pointer to a Time-bomb Knapsack problem.
+ * @param params    Solver parameters.
  * @param x         Current fixed/unfixed variable status in the B&B.
  * @param grb_model Base Gurobi model.
+ * @param root_node Whether the function is being called from the B&B tree's
+ *                  root node.
  * @return          The value of the LB and the objects selected by the Boole
  *                  QB problem.
  */
 TBKPBooleSol tbkp_boolesol_quad_gurobi_get(
         const TBKPInstance* instance,
+        const TBKPParams* params,
         const TBKPBBFixedStatus* x,
-        GRBmodel* grb_model);
+        GRBmodel* grb_model,
+        _Bool root_node);
 
 /** Generate a base model for solving the Boole BQ problem using a linearisation.
  * @param instance Const pointer to a Time-bomb Knapsack problem.
@@ -80,13 +85,17 @@ GRBmodel* tbkp_boolesol_lin_base_model(const TBKPInstance* instance, const TBKPP
  * @param params    Solver parameters.
  * @param x         Current fixed/unfixed variable status in the B&B.
  * @param grb_model Base Gurobi model.
+ * @param root_node Whether the function is being called from the B&B tree's
+ *                  root node.
  * @return          The value of the LB and the objects selected by the Boole
  *                  QB problem.
  */
 TBKPBooleSol tbkp_boolesol_lin_gurobi_get(
         const TBKPInstance* instance,
+        const TBKPParams* params,
         const TBKPBBFixedStatus* x,
-        GRBmodel* grb_model);
+        GRBmodel* grb_model,
+        _Bool root_node);
 
 /** Computes the original TBKP objective value of a solution obtained
  *  using the Boole BQ problem.

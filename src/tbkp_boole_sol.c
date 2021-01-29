@@ -147,8 +147,10 @@ GRBmodel* tbkp_boolesol_lin_base_model(const TBKPInstance* instance, const TBKPP
 
 TBKPBooleSol tbkp_boolesol_lin_gurobi_get(
         const TBKPInstance* instance,
+        const TBKPParams* params,
         const TBKPBBFixedStatus* x,
-        GRBmodel* grb_model)
+        GRBmodel* grb_model,
+        _Bool root_node)
 {
     clock_t start_time = clock();
     int error, n = (int)instance->n_items;
@@ -202,6 +204,15 @@ TBKPBooleSol tbkp_boolesol_lin_gurobi_get(
         exit(EXIT_FAILURE);
     }
 
+    if(root_node && params->boole_solver_root_timeout_s != params->boole_solver_timeout_s) {
+        error = GRBsetdblparam(GRBgetenv(grb_model), "TimeLimit", params->boole_solver_root_timeout_s);
+
+        if(error) {
+            printf("Error setting the root node Boole time limit: %d\n", error);
+            exit(EXIT_FAILURE);
+        }
+    }
+
     error = GRBoptimize(grb_model);
 
     if(error) {
@@ -220,6 +231,15 @@ TBKPBooleSol tbkp_boolesol_lin_gurobi_get(
 
     if(grb_status != GRB_OPTIMAL) {
         printf("Warning: Boole IP status not optimal. It is %d.\n", grb_status);
+    }
+
+    if(root_node && params->boole_solver_root_timeout_s != params->boole_solver_timeout_s) {
+        error = GRBsetdblparam(GRBgetenv(grb_model), "TimeLimit", params->boole_solver_timeout_s);
+
+        if(error) {
+            printf("Error restoring the regular Boole time limit after the root node: %d\n", error);
+            exit(EXIT_FAILURE);
+        }
     }
 
     double obj;
@@ -405,8 +425,10 @@ GRBmodel* tbkp_boolesol_quad_base_model(const TBKPInstance* instance, const TBKP
 
 TBKPBooleSol tbkp_boolesol_quad_gurobi_get(
         const TBKPInstance* instance,
+        const TBKPParams* params,
         const TBKPBBFixedStatus* x,
-        GRBmodel* grb_model)
+        GRBmodel* grb_model,
+        _Bool root_node)
 {
     clock_t start_time = clock();
 
@@ -461,6 +483,15 @@ TBKPBooleSol tbkp_boolesol_quad_gurobi_get(
         exit(EXIT_FAILURE);
     }
 
+    if(root_node && params->boole_solver_root_timeout_s != params->boole_solver_timeout_s) {
+        error = GRBsetdblparam(GRBgetenv(grb_model), "TimeLimit", params->boole_solver_root_timeout_s);
+
+        if(error) {
+            printf("Error setting the root node Boole time limit: %d\n", error);
+            exit(EXIT_FAILURE);
+        }
+    }
+
     error = GRBoptimize(grb_model);
 
     if(error) {
@@ -479,6 +510,15 @@ TBKPBooleSol tbkp_boolesol_quad_gurobi_get(
 
     if(grb_status != GRB_OPTIMAL) {
         printf("Warning: Boole BQ status not optimal. It is %d.\n", grb_status);
+    }
+
+    if(root_node && params->boole_solver_root_timeout_s != params->boole_solver_timeout_s) {
+        error = GRBsetdblparam(GRBgetenv(grb_model), "TimeLimit", params->boole_solver_timeout_s);
+
+        if(error) {
+            printf("Error restoring the regular Boole time limit after the root node: %d\n", error);
+            exit(EXIT_FAILURE);
+        }
     }
 
     double obj;
