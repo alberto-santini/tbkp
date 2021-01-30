@@ -96,8 +96,11 @@ def create_bb_eval_scripts(configuration)
             # Sixth configuration: DEbounds (z1lower + z1upper) + BOOLEbound (z2lower) + CRbound (z2upper) but *without* early combo
             create_script instance, early_combo: false, early_pruning: true, use_de: true, use_boole: true, boole_freq: 1000, boole_tl: 1, boole_root_tl: 1, quad_boole: true, use_cr: true
         when 7
-            # Seventh configuration: DEbounds(z1lower + z1upper) + Boolebound (z2lower, 10s root, 1s elsewhere), CRbound (z2upper)
+            # Seventh configuration: DEbounds(z1lower + z1upper) + BOOLEbound (z2lower, 10s root, 1s elsewhere), CRbound (z2upper)
             create_script instance, early_combo: true, early_pruning: true, use_de: true, use_boole: true, boole_freq: 1, boole_tl: 1, boole_root_tl: 10, quad_boole: true, use_cr: true
+        when 8
+            # Eighth configuration" DEbounds(z1lower + z1upper) + BOOLEbound (z2lower, 10s root, 1s elsewhere)
+            create_script instance, early_combo: true, early_pruning: true, use_de: true, use_boole: true, boole_freq: 1, boole_tl: 1, boole_root_tl: 10, quad_boole: true, use_cr: false
         end
     end
 end
