@@ -104,7 +104,7 @@ int main(int argc, const char** argv) {
         
         TBKPBBSolution* sol = tbkp_branch_and_bound(instance, &stats, &p);
         printf("Branch and bound. Solution: %.2f\n", sol->value);
-        tbkp_bb_stats_to_file(&stats, &p);
+        tbkp_bb_stats_to_file(&stats, sol, instance, &p);
 
         GRBfreeenv(grb_env);
         tbkp_sol_free(&sol);

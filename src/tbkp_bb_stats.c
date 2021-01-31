@@ -36,6 +36,8 @@ void tbkp_bb_stats_print(const TBKPBBStats *const stats) {
 
 void tbkp_bb_stats_to_file(
         const TBKPBBStats *const stats,
+        const TBKPBBSolution* sol,
+        const TBKPInstance* instance,
         const TBKPParams *const params)
 {
     if(!params->output_file) {
@@ -49,6 +51,8 @@ void tbkp_bb_stats_to_file(
         exit(EXIT_FAILURE);
     }
 
+    fprintf(f, "inst_num_items,inst_num_tb_items,");
+    fprintf(f, "sol_product_probabilities,sol_sum_profits,sol_num_items,sol_num_tb_items,");
     fprintf(f, "early_combo,max_nodes,ub,lb,gap,time_s,n_nodes");
 
     if(params->use_cr_bound || params->use_all_bounds_at_root) {
@@ -65,7 +69,12 @@ void tbkp_bb_stats_to_file(
 
     fprintf(f, "\n");
 
-    fprintf(f, "%d,%zu,%.3f,%.3f,%.3f,%.3f,%zu",
+    fprintf(f, "%zu,%zu", instance->n_items, instance->n_tb_items);
+    fprintf(f, ",%.6f,%" PRIuFAST32, sol->prod_probabilities, sol->sum_profits);
+    fprintf(f, ",%zu", tbkp_sol_count_items(sol, instance));
+    fprintf(f, ",%zu", tbkp_sol_count_tb_items(sol, instance));
+
+    fprintf(f, ",%d,%zu,%.3f,%.3f,%.3f,%.3f,%zu",
             params->use_early_combo, params->max_nodes, stats->ub, stats->lb, stats->gap * 100.0, stats->elapsed_time, stats->n_nodes);
 
     if(params->use_cr_bound || params->use_all_bounds_at_root) {

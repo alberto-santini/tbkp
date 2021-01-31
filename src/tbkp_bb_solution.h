@@ -6,7 +6,7 @@
 #define TBKP_TBKP_BB_SOLUTION_H
 
 #include "tbkp_instance.h"
-#include "tbkp_bb_stats.h"
+#include <stddef.h>
 #include <stdint.h>
 
 /** Represents a solution to the Time-Bomb Knapsack Problem. */
@@ -25,6 +25,8 @@ typedef struct {
 } TBKPBBSolution;
 
 TBKPBBSolution* tbkp_sol_init(const TBKPInstance* instance);
+size_t tbkp_sol_count_tb_items(const TBKPBBSolution* sol, const TBKPInstance* instance);
+size_t tbkp_sol_count_items(const TBKPBBSolution* sol, const TBKPInstance* instance);
 void tbkp_sol_print(const TBKPBBSolution* solution, const TBKPInstance* instance);
 void tbkp_sol_free(TBKPBBSolution** solution_ptr);
 

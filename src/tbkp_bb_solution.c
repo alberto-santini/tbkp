@@ -50,3 +50,23 @@ void tbkp_sol_free(TBKPBBSolution** solution_ptr) {
     free((*solution_ptr)->x); (*solution_ptr)->x = NULL;
     free(*solution_ptr); *solution_ptr = NULL;
 }
+
+size_t tbkp_sol_count_tb_items(const TBKPBBSolution* sol, const TBKPInstance* instance) {
+    size_t n_tb = 0u;
+    for(size_t i = 0u; i < instance->n_items; ++i) {
+        if(sol->x[i] && instance->probabilities[i] < 1.0f) {
+            ++n_tb;
+        }
+    }
+    return n_tb;
+}
+
+size_t tbkp_sol_count_items(const TBKPBBSolution* sol, const TBKPInstance* instance) {
+    size_t n_items = 0u;
+    for(size_t i = 0u; i < instance->n_items; ++i) {
+        if(sol->x[i]) {
+            ++n_items;
+        }
+    }
+    return n_items;
+}
