@@ -13,17 +13,18 @@ EOF
 
 def create_script(
     instance,
-    early_combo:,
-    early_pruning:,
-    use_de:,
-    use_boole:,
-    boole_freq:,
-    boole_tl:,
-    boole_root_tl:,
-    use_cr:,
+    config_n,
+    early_combo: true,
+    early_pruning: true,
+    use_de: false,
+    use_boole: false,
+    boole_freq: 1,
+    boole_tl: 1,
+    boole_root_tl: 1,
+    use_cr: false,
     all_bounds: false,
     disable_presolve: false,
-    quad_boole: false,
+    quad_boole: true,
     max_nodes: 0
 )
     instance = File.join(
@@ -31,18 +32,24 @@ def create_script(
         File.basename(instance)
     )
 
-    b = File.basename(instance, '.txt')
-    sz = b.split('-')[1].to_i
+    f = File.basename(instance, '.txt')
+    sz = f.split('-')[1].to_i
+
+    b = "config-#{config_n}-#{f}"
     b += "-d" if use_de
     b += "-b#{boole_freq},#{boole_tl},#{boole_root_tl}" if use_boole
     b += "-r" if use_cr
     b += "-c" if early_combo
     b += "-p" if early_pruning
 
-    script_f = File.join('scripts', "launch-#{b}.sh")
+
+    results_base = '/homes/users/asantini/local/src/tbkp/cluster/output'
+    FileUtils.mkdir_p(File.join(results_base, "bb-config-#{config_n}"))
+
+    script_f = File.join('scripts', "launch-bb-#{b}.sh")
     error_f = File.join('/homes/users/asantini/local/src/tbkp/cluster/scripts', "err-#{b}.txt")
     output_f = File.join('/homes/users/asantini/local/src/tbkp/cluster/scripts', "out-#{b}.txt")
-    results_f = File.join('/homes/users/asantini/local/src/tbkp/cluster/output', "res-#{b}.txt")
+    results_f = File.join(results_base, "bb-config-#{config_n}", "res-#{b}.txt")
     
     params = ""
     params += " -d 1" if use_de
@@ -56,9 +63,9 @@ def create_script(
     params += " -n #{max_nodes}"
 
     mem = case sz
-        when 5000 then '64GB'
-        when 1000 then '16GB'
-        else '8GB'
+        when 5000 then '32GB'
+        when 1000 then '8GB'
+        else '4GB'
     end
 
     script = <<~EOF
@@ -78,29 +85,22 @@ def create_bb_eval_scripts(configuration)
     Dir.glob('../data/generated-instances/*.txt') do |instance|
         case configuration
         when 1
-            # First configuration: enumeration
-            create_script instance, early_combo: true, early_pruning: false, use_de: false, use_boole: false, boole_freq: 0, boole_tl: 3600, boole_root_tl: 3600, quad_boole: true, use_cr: false
+            # Enumeration
+            create_script instance, 1, early_pruning: false
         when 2
-            # Second configuration: DEbounds (z1lower + z1upper)
-            create_script instance, early_combo: true, early_pruning: true, use_de: true, use_boole: false, boole_freq: 0, boole_tl: 3600, boole_root_tl: 3600, quad_boole: true, use_cr: false
+            # DEbounds (z1lower + z1upper)
+            create_script instance, 2, use_de: true
         when 3
-            # Third configuration: all bounds, i.e., DEbounds (z1lower + z1upper), BOOLEbound (z2lower), CRbound (z2upper)
-            create_script instance, early_combo: true, early_pruning: true, use_de: true, use_boole: true, boole_freq: 1000, boole_tl: 1, boole_root_tl: 1, quad_boole: true, use_cr: true
+            # DEbounds (z1lower + z1upper) + CRbound (z2upper)
+            create_script instance, 3, use_de: true, use_cr: true
         when 4
-            # Fourth configuration: DEbounds (z1lower + z1upper) + BOOLEbound (z2lower)
-            create_script instance, early_combo: true, early_pruning: true, use_de: true, use_boole: true, boole_freq: 1000, boole_tl: 1, boole_root_tl: 1, quad_boole: true, use_cr: false
+            # DEbounds (z1lower + z1upper) + BOOLEbound (z2lower: 10s root, 1s other, at each node)
+            create_script instance, 4, use_de: true,
+                use_boole: true, boole_freq: 1, boole_tl: 1, boole_root_tl: 10
         when 5
-            # Fifth configuration: DEbounds (z1lower + z1upper) + CRbound (z2upper)
-            create_script instance, early_combo: true, early_pruning: true, use_de: true, use_boole: false, boole_freq: 0, boole_tl: 3600, boole_root_tl: 3600, quad_boole: true, use_cr: true
-        when 6
-            # Sixth configuration: DEbounds (z1lower + z1upper) + BOOLEbound (z2lower) + CRbound (z2upper) but *without* early combo
-            create_script instance, early_combo: false, early_pruning: true, use_de: true, use_boole: true, boole_freq: 1000, boole_tl: 1, boole_root_tl: 1, quad_boole: true, use_cr: true
-        when 7
-            # Seventh configuration: DEbounds(z1lower + z1upper) + BOOLEbound (z2lower, 10s root, 1s elsewhere), CRbound (z2upper)
-            create_script instance, early_combo: true, early_pruning: true, use_de: true, use_boole: true, boole_freq: 1, boole_tl: 1, boole_root_tl: 10, quad_boole: true, use_cr: true
-        when 8
-            # Eighth configuration" DEbounds(z1lower + z1upper) + BOOLEbound (z2lower, 10s root, 1s elsewhere)
-            create_script instance, early_combo: true, early_pruning: true, use_de: true, use_boole: true, boole_freq: 1, boole_tl: 1, boole_root_tl: 10, quad_boole: true, use_cr: false
+            # DEbounds (z1lower + z1upper) + BOOLEbound (z2lower: 10s root, 1s other, each 100th node)
+            create_script instance, 5, use_de: true,
+                use_boole: true, boole_freq: 100, boole_tl: 1, boole_root_tl: 10
         end
     end
 end
