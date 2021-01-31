@@ -18,13 +18,10 @@ def create_script(
     early_pruning: true,
     use_de: false,
     use_boole: false,
+    use_cr: false,
     boole_freq: 1,
     boole_tl: 1,
     boole_root_tl: 1,
-    use_cr: false,
-    all_bounds: false,
-    disable_presolve: false,
-    quad_boole: true,
     max_nodes: 0
 )
     instance = File.join(
@@ -42,7 +39,6 @@ def create_script(
     b += "-c" if early_combo
     b += "-p" if early_pruning
 
-
     results_base = '/homes/users/asantini/local/src/tbkp/cluster/output'
     FileUtils.mkdir_p(File.join(results_base, "bb-config-#{config_n}"))
 
@@ -52,14 +48,11 @@ def create_script(
     results_f = File.join(results_base, "bb-config-#{config_n}", "res-#{b}.txt")
     
     params = ""
-    params += " -d 1" if use_de
-    params += " -b 1 -f #{boole_freq} -T #{boole_tl} -R #{boole_root_tl}" if use_boole
-    params += " -c 1" if early_combo
-    params += " -p 1" if early_pruning
-    params += " -r 1" if use_cr
-    params += " -a 1" if all_bounds
-    params += " -g 1" if disable_presolve
-    params += " -q 1" if quad_boole
+    params += (use_de ? " -d 1" : " -d 0")
+    params += (use_boole ? " -b 1 -f #{boole_freq} -T #{boole_tl} -R #{boole_root_tl}" : " -b 0")
+    params += (use_cr ? " -r 1" : " -r 0")
+    params += (early_combo ? " -c 1" : " -c 0")
+    params += (early_pruning ? " -p 1" : " -p 0")
     params += " -n #{max_nodes}"
 
     mem = case sz
