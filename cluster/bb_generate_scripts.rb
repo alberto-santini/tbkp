@@ -96,26 +96,26 @@ def create_bb_eval_scripts(configuration)
                 use_boole: true, boole_freq: 100, boole_tl: 1, boole_root_tl: 10
         when 6
             # DEbounds (z1lower + z1upper) + BOOLEbound (z2lower: 10s root, 1s other, each 1000th node)
-            create_script instance, 5, use_de: true,
+            create_script instance, 6, use_de: true,
                 use_boole: true, boole_freq: 1000, boole_tl: 1, boole_root_tl: 10
         when 7
             # DEbounds (z1lower + z1upper) + BOOLEbound (z2lower: 10s root, 1s other, each 100th node) + CRbound (z2upper)
-            create_script instance, 6, use_de: true,
+            create_script instance, 7, use_de: true,
                 use_boole: true, boole_freq: 100, boole_tl: 1, boole_root_tl: 10,
                 use_cr: true
         when 8
             # DEbounds (z1lower + z1upper) + BOOLEbound (z2lower: 10s root, 1s other, each 1000th node) + CRbound (z2upper)
-            create_script instance, 6, use_de: true,
+            create_script instance, 8, use_de: true,
                 use_boole: true, boole_freq: 1000, boole_tl: 1, boole_root_tl: 10,
                 use_cr: true
         when 9
             # DEbounds (z1lower + z1upper) + BOOLEbound (z2lower: 10s root, 1s other, each 1000th node) + CRbound (z2upper), no early combo
-            create_script instance, 6, use_de: true,
+            create_script instance, 9, use_de: true,
                 use_boole: true, boole_freq: 1000, boole_tl: 1, boole_root_tl: 10,
                 use_cr: true, early_combo: false
         when 10
             # DEbounds (z1lower + z1upper) + BOOLEbound (z2lower: 10s root, 1s other, each 1000th node) + CRbound (z2upper), no early pruning
-            create_script instance, 6, use_de: true,
+            create_script instance, 10, use_de: true,
                 use_boole: true, boole_freq: 1000, boole_tl: 1, boole_root_tl: 10,
                 use_cr: true, early_pruning: false
         end
