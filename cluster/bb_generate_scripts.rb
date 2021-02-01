@@ -118,6 +118,19 @@ def create_bb_eval_scripts(configuration)
             create_script instance, 10, use_de: true,
                 use_boole: true, boole_freq: 1000, boole_tl: 1, boole_root_tl: 10,
                 use_cr: true, early_pruning: false
+        when 11
+            # DEbounds (z1lower + z1upper) (z2upper), no early pruning
+            create_script instance, 11, use_de: true,
+                early_pruning: false
+        when 12
+            # DEbounds (z1lower + z1upper) + CRbound (z2upper), no early pruning
+            create_script instance, 12, use_de: true, use_cr: true,
+                early_pruning: false
+        when 13
+            # DEbounds (z1lower + z1upper) + BOOLEbound (z2lower: 10s root, 1s other, each 100th node), no early pruning
+            create_script instance, 13, use_de: true,
+                use_boole: true, boole_freq: 100, boole_tl: 1, boole_root_tl: 10,
+                early_pruning: false
         end
     end
 end
