@@ -11,6 +11,7 @@ typedef struct {
     char* solver;
     char* instance_file;
     char* output_file;
+    char* solution_file;
     float timeout;
 
     // BB options:

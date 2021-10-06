@@ -46,6 +46,28 @@ void tbkp_sol_print(const TBKPBBSolution *const solution, const TBKPInstance *co
     }
 }
 
+void tbkp_sol_to_file(const TBKPBBSolution* solution, const TBKPInstance* instance, const TBKPParams* params) {
+  if(!params->solution_file) {
+    return;
+  }
+
+  FILE* f = fopen(params->solution_file, "w");
+
+  if(!f) {
+    printf("Error opening solution output file %s\n", params->solution_file);
+    exit(EXIT_FAILURE);
+  }
+
+  for(size_t i = 0u; i < instance->n_items; ++i) {
+    if(solution->x[i]) {
+      fprintf(f, "%zu ", i);
+    }
+  }
+
+  fprintf(f, "\n");
+  fclose(f);
+}
+
 void tbkp_sol_free(TBKPBBSolution** solution_ptr) {
     free((*solution_ptr)->x); (*solution_ptr)->x = NULL;
     free(*solution_ptr); *solution_ptr = NULL;

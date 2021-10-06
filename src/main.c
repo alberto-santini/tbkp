@@ -16,6 +16,7 @@ TBKPParams parse_arguments(int argc, const char** argv) {
         .solver = "bb",
         .instance_file = NULL,
         .output_file = NULL,
+        .solution_file = NULL,
         .timeout = 3600.0f,
         .boole_solver_timeout_s = 3600.0f,
         .boole_solver_root_timeout_s = 3600.0f,
@@ -44,6 +45,7 @@ TBKPParams parse_arguments(int argc, const char** argv) {
         OPT_HELP(),
         OPT_STRING( 'i', "instance", &p.instance_file, "path of the instance"),
         OPT_STRING( 'o', "output", &p.output_file, "path to the csv output file"),
+        OPT_STRING( 'S', "solution", &p.solution_file, "path to the file in which to output the solution"),
         OPT_STRING( 's', "solver", &p.solver, "solver: bb = branch and bound, dp = dynamic programming"),
         OPT_FLOAT(  't', "timeout", &p.timeout, "timeout in seconds"),
         OPT_FLOAT(  'T', "booletimeout", &p.boole_solver_timeout_s, "timeout in seconds for the solver of the Boole bound model"),
@@ -105,6 +107,7 @@ int main(int argc, const char** argv) {
         TBKPBBSolution* sol = tbkp_branch_and_bound(instance, &stats, &p);
         printf("Branch and bound. Solution: %.2f\n", sol->value);
         tbkp_bb_stats_to_file(&stats, sol, instance, &p);
+        tbkp_sol_to_file(sol, instance, &p);
 
         GRBfreeenv(grb_env);
         tbkp_sol_free(&sol);
