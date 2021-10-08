@@ -48,7 +48,7 @@ static int tbkp_bb_branch_item(const TBKPBBAlgStatus *const status, const TBKPBB
             double scorej = ((double)status->instance->profits[i] * status->instance->probabilities[i]) /
                     (1.0 - status->instance->probabilities[i]);
 
-            if(scorej < residual->sum_profits) {
+            if(scorej < (double)residual->sum_profits) {
                 continue;
             }
         }
@@ -173,8 +173,10 @@ static void update_best_solution_from_de(
     status->solution->sum_profits = desol->lb_sum_profits + residual->sum_profits;
 
     for(size_t i = 0u; i < status->instance->n_items; ++i) {
+        status->solution->x[i] = false;
+
         if(status->x[i] != UNFIXED) {
-            status->solution->x[i] = status->x[i];
+            status->solution->x[i] = (status->x[i] == FIXED_PACK);
         }
     }
 
@@ -232,8 +234,10 @@ static void update_best_solution_from_cr(
     status->solution->sum_profits = crsol->lb_sum_profits;
 
     for(size_t i = 0u; i < status->instance->n_items; ++i) {
+        status->solution->x[i] = false;
+
         if(status->x[i] != UNFIXED) {
-            status->solution->x[i] = status->x[i];
+            status->solution->x[i] = (status->x[i] == FIXED_PACK);
         }
     }
 
@@ -266,8 +270,10 @@ static void update_best_solution_from_boole(
     status->solution->sum_profits = boolesol->lb_sum_profits + residual->sum_profits;
 
     for(size_t i = 0u; i < status->instance->n_items; ++i) {
+        status->solution->x[i] = false;
+
         if(status->x[i] != UNFIXED) {
-            status->solution->x[i] = status->x[i];
+            status->solution->x[i] = (status->x[i] == FIXED_PACK);
         }
     }
 
@@ -542,16 +548,13 @@ static double solve_det_kp(TBKPBBAlgStatus* status, const TBKPBBResidualInstance
 
             // Time-bomb objects
             for(size_t i = 0u; i < status->instance->n_items; ++i) {
-                if(status->x[i] != UNFIXED) {
-                    status->solution->x[i] = status->x[i];
-                }
+                assert(status->x[i] != UNFIXED);
+                status->solution->x[i] = (status->x[i] == FIXED_PACK);
             }
 
             // Non-time-bomb objects
             for(size_t i = 0u; i < n_det_items; ++i) {
-                if(cmb_items[i].x) {
-                    status->solution->x[cmb_items[i].pos] = true;
-                }
+                status->solution->x[cmb_items[i].pos] = cmb_items[i].x;
             }
         }
 

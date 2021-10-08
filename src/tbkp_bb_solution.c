@@ -65,6 +65,7 @@ void tbkp_sol_to_file(const TBKPBBSolution* solution, const TBKPInstance* instan
   }
 
   fprintf(f, "\n");
+  fprintf(f, "%" PRIuFAST32 " %.6f %.6f\n", solution->sum_profits, solution->prod_probabilities, solution->value);
   fclose(f);
 }
 
