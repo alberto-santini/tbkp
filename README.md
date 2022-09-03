@@ -4,11 +4,13 @@ This repository contains the instances and the source code to solve the **0-1 Ti
 The problem is introduced in the following paper:
 
 ```bib
-@online{MPS2020,
-    title={{The 0--1 Time-bomb Knapsack Problem}},
-    author={Monaci, Michele and Pike-Burke Ciara, and Santini, Alberto},
-    year={2020},
-    version={1}
+@article{MPS2020,
+    title={The time-bomb knapsack problem},
+    author={Monaci, Michele and Pike-Burke, Ciara and Santini, Alberto},
+    journal={{Computers \& Operations Research}},
+    volume=145,
+    doi={10.1016/j.cor.2022.105848},
+    year=2022
 }
 ```
 
