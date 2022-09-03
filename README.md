@@ -1,11 +1,11 @@
 # The 01-TB-KP
 
 This repository contains the instances and the source code to solve the **0-1 Time-bomb Knapsack Problem**.
-The problem is introduced in the following paper:
+The problem is introduced in the following paper ([preprint](https://santini.in/files/papers/monaci-pike-burke-santini-2021.pdf), [journal version](https://www.sciencedirect.com/science/article/pii/S0305054822001253)):
 
 ```bib
 @article{MPS2020,
-    title={The time-bomb knapsack problem},
+    title={Exact algorithms for the 0-1 time-bomb knapsack problem},
     author={Monaci, Michele and Pike-Burke, Ciara and Santini, Alberto},
     journal={{Computers \& Operations Research}},
     volume=145,
