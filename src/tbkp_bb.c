@@ -792,7 +792,7 @@ static void tbkp_bb_solve_node(
     // Check if LB == UB; in this case, prune.
     if(local_lb >= local_ub - EPS && local_lb != INITIAL_LB_PLACEHOLDER && local_ub != INITIAL_UB_PLACEHOLDER) {
         if(BB_VERBOSITY_CURRENT >= BB_VERBOSITY_INFO) {
-            if(local_lb > local_lb + EPS) {
+            if(local_lb > local_ub + EPS) {
                 printf("[NODE %zu] Potential bug: LB > UB (%.4f > %.4f)\n", current_node, local_lb, local_ub);
                 exit(EXIT_FAILURE);
             }
