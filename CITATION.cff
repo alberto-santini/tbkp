@@ -13,6 +13,7 @@ doi: 10.5281/zenodo.4193102
 date-released: 2020-11-02
 url: "https://github.com/alberto-santini/tbkp"
 preferred-citation:
+  type: article
   authors:
   - family-names: "Monaci"
     first-names: "Michele"
