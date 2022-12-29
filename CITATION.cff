@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Monaci"
+  first-names: "Michele"
+- family-names: "Pike-Burke"
+  first-names: "Ciara"
+- family-names: "Santini"
+  first-names: "Alberto"
+title: "Code and instances for the 01-TB-KP"
+version: 0.1
+doi: 10.5281/zenodo.4193102
+date-released: 2020-11-02
+url: "https://github.com/alberto-santini/tbkp"
+preferred-citation:
+  authors:
+  - family-names: "Monaci"
+    first-names: "Michele"
+  - family-names: "Pike-Burke"
+    first-names: "Ciara"
+  - family-names: "Santini"
+    first-names: "Alberto"
+  title: "Exact algorithms for the 0-1 time-bomb knapsack problem"
+  journal: "Computers & Operations Research"
+  volume: 145
+  year: 2022
+  doi: 10.1016/j.cor.2022.105848
